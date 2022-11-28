@@ -53,7 +53,7 @@ class TaskManager(threading.Thread):
                     print(6)
                     task.handle_running() # todo delete, log to something and run UI to check logs
             self.running -= done
-            print(6.1, self.running)
+            print(6.1, self.running, time.time())
             time.sleep(0.1)
             
             # for dag in self.dags:

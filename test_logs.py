@@ -14,9 +14,9 @@ def main():
     dag_manager.start() 
 
     command = [sys.executable, '-u', 'write_to_mongo.py']
-    task1 = ShellTask(command=command, env={'TASK_NAME': 'task1'})
-    task2 = ShellTask(command=command, env={'TASK_NAME': 'task2'})
-    task3 = ShellTask(command=command, env={'TASK_NAME': 'task3'})
+    task1 = ShellTask(command=command, env={'TASK_NAME': 'task1'}, name='1')
+    task2 = ShellTask(command=command, env={'TASK_NAME': 'task2'}, name='2')
+    task3 = ShellTask(command=command, env={'TASK_NAME': 'task3'}, name='3')
     # # dag_manager.task_queue.put(task1, block=False)
     # # dag_manager.task_queue.put(task2, block=False)
     # # dag_manager.task_queue.put(task3, block=False)

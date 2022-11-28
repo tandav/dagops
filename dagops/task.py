@@ -1,6 +1,7 @@
 import subprocess
 import abc
 import logging
+import uuid
 import enum
 
 class TaskStatus(enum.Enum):
@@ -61,6 +62,7 @@ class ShellTask(Task):
         # **kwargs,
         command: list[str],
         env: dict[str, str] | None = None,
+        name: str | None = None,
     ):
         # super().__init__(deps, **kwargs)
         # self.deps = deps
@@ -68,6 +70,11 @@ class ShellTask(Task):
         self.env = env
         self.p = None
         self.lines = []
+        self.name = name or str(uuid.uuid4())
+        self.fh = open(f'logs/{self.name}.txt', 'w')
+        # fh = logging.FileHandler(f'logs/{self.name}.txt')
+        # self.logger = logging.getLogger(self.name)
+        # self.logger.addHandler(fh)
 
     @classmethod
     def from_path(cls, path: str, env: dict[str, str] | None = None):
@@ -78,6 +85,8 @@ class ShellTask(Task):
         self.p = subprocess.Popen(
             self.command, 
             env=self.env, 
+            stdout=self.fh,
+            # stdout=self.logger,
             # stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # redirect stderr to stdout
             text=True,
@@ -86,25 +95,30 @@ class ShellTask(Task):
 
     @property
     def status(self):
-        print(7, self.env)
+        # print(7, self.env)
         if self.p is None:
-            print('7.1', self.env)
+            # print('7.1', self.env)
             return TaskStatus.PENDING
         elif self.p.poll() is None:
-            print('7.2', self.env)
+            # print('7.2', self.env)
             return TaskStatus.RUNNING
         elif self.p.returncode == 0:
-            print('7.3', self.env)
+            # print('7.3', self.env)
             return TaskStatus.SUCCESS
         else:
-            print('7.4', self.env)
+            # print('7.4', self.env)
             return TaskStatus.FAILED
 
     def handle_running(self):
-        print(8, self.env)
+        pass
+        # print(8, self.env)
         # if self.status != TaskStatus.RUNNING:
         #     raise RuntimeError(f'Task is not running, current status: {self.status}')
+        
+        # if self.p is None:
+        #     raise RuntimeError('p is None')
+
         # for line in self.p.stdout: # this is blocking till complete, bad, need use something else
-        #     # logging.info(line.rstrip())
+        # #     # logging.info(line.rstrip())
         #     print(line.rstrip())
         #     self.lines.append(line)
