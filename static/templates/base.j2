@@ -1,0 +1,16 @@
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css"/>
+    {% block extra_css %}{% endblock %}
+    <title>{% block title %}{% endblock %}</title>
+</head>
+<body>
+    <nav>
+        <a href="/logs/">[logs]</a>
+    </nav>
+    <section>
+    {% block content %}
+    {% endblock %}
+    </section>
+</body>
+</html>
