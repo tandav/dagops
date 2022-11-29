@@ -4,11 +4,13 @@ import logging
 import uuid
 import enum
 
-class TaskStatus(enum.Enum):
-    PENDING = 0
-    RUNNING = 1
-    SUCCESS = 2
-    FAILED = 3
+# class TaskStatus(enum.Enum):
+class TaskStatus:
+    PENDING = b'PENDING'
+    RUNNING = b'RUNNING'
+    SUCCESS = b'SUCCESS'
+    FAILED = b'FAILED'
+    CANCELED = b'CANCELED'
 
 class Task:
     @abc.abstractmethod
@@ -71,7 +73,7 @@ class ShellTask(Task):
         self.p = None
         self.lines = []
         self.name = name or str(uuid.uuid4())
-        self.fh = open(f'logs/{self.name}.txt', 'w')
+        self.fh = open(f'static/logs/{self.name}.txt', 'w')
         # fh = logging.FileHandler(f'logs/{self.name}.txt')
         # self.logger = logging.getLogger(self.name)
         # self.logger.addHandler(fh)

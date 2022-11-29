@@ -11,7 +11,7 @@ import logging
 # url = 'http://127.0.0.1:5006/api'
 # track_id = '637e518db6e4c5e0959fd74f'
 
-for i in range(100):
+for i in range(10):
     # print(time.time(), os.environ['TASK_NAME'])
     # logging.info(time.time(), os.environ['TASK_NAME'], '***************8')
     task_name = os.environ['TASK_NAME']
