@@ -24,7 +24,7 @@ templates = Jinja2Templates(directory=static_folder / 'templates')
 
 @app.get('/', response_class=HTMLResponse)
 async def root():
-    return RedirectResponse('/logs/')
+    return RedirectResponse('/tasks/')
 
 
 @app.get('/logs/', response_class=HTMLResponse)
@@ -65,3 +65,12 @@ async def tasks(request: Request):
         # task['task_id'] = Path(task['name']).stem
     print(tasks)
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+
+@app.get('/tasks/{task_id}', response_class=HTMLResponse)
+async def task(request: Request, task_id: str):
+    task = await state.redis.hgetall(f'tasks:{task_id}')
+    task['id'] = task_id
+    task['status'] = task[b'status'].decode()
+    task['cmd'] = task[b'cmd'].decode()
+    task['env'] = task[b'env'].decode()
+    return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
