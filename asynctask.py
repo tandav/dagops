@@ -28,7 +28,7 @@ async def main():
         asyncio.create_task(process_output(queue, "task2")),
     ]
 
-    while not all([task.done() for task in tasks]):
+    while not all(task.done() for task in tasks):
         key, output = await queue.get()
         print('*', key, output)
         # if identifier == 'top':

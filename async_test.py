@@ -37,7 +37,7 @@ class AsyncWatcher:
             print(self.processes)
             task_to_task_id = {t: k for k, t in self.processes.items()}
             done, running = await asyncio.wait(task_to_task_id, return_when=asyncio.FIRST_COMPLETED)
-            assert len(done) == 1
+            # assert len(done) == 1
             print('done', done)
             for task in done:
                 p = task.result()
