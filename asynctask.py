@@ -10,13 +10,14 @@ async def process_output(queue, key):
         env={'TASK_NAME': key},
         stdout=asyncio.subprocess.PIPE,
     )
-    while True:
-        if proc.stdout.at_eof():
-            print('proc.returncode:', proc.returncode)
-            break
+
+    # async for line in proc.stdout: # not works
+        # queue.put_nowait((key, line))
+    
+    while not proc.stdout.at_eof():
         line = await proc.stdout.readline()
-        
         await queue.put((key, line))
+    print('proc.returncode:', proc.returncode)
 
 
 async def main():
@@ -26,7 +27,6 @@ async def main():
         asyncio.create_task(process_output(queue, "task1")),
         asyncio.create_task(process_output(queue, "task2")),
     ]
-
 
     while not all([task.done() for task in tasks]):
         key, output = await queue.get()

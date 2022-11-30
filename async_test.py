@@ -24,15 +24,6 @@ class AsyncWatcher:
         self.processes = {}
         self.logs_handlers = {}
 
-        # self.loop = asyncio.get_event_loop()
-        # self.loop.run_until_complete(main())
-        # self.loop.run_forever()
-    
-    # async def is_running(self, proc):
-    #     """https://stackoverflow.com/a/65880634/4204843"""
-    #     with contextlib.suppress(asyncio.TimeoutError):
-    #         await asyncio.wait_for(proc.wait(), 1e-6)
-    #     return proc.returncode is None
 
     async def run_subprocess(self, key, logs_fh):
         p = await asyncio.create_subprocess_exec(
@@ -46,9 +37,6 @@ class AsyncWatcher:
         
 
     async def process_handlers(self):
-        """
-        TODO: use FIRST_COMPLETED, 
-        """
         while True:
             if not self.processes:
                 await asyncio.sleep(1)
@@ -59,7 +47,6 @@ class AsyncWatcher:
             print('done', done)
             for task in done:
                 p = task.result()
-                print('77777777')
                 # await p.communicate()
                 assert p.returncode is not None
                 key = task_to_key[task]
