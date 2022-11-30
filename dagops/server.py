@@ -44,3 +44,11 @@ async def logs(log_name: str, request: Request):
     #     log['name'] = Path(log['name']).stem
     # print(logs)
     # return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
+
+@app.get('/tasks', response_class=HTMLResponse)
+async def tasks(request: Request):
+    tasks = await util.dirstat(static_folder / 'tasks')
+    for task in tasks:
+        task['task_id'] = Path(task['name']).stem
+    print(tasks)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
