@@ -3,6 +3,7 @@ import aiofiles.os
 from redis import Redis
 import sys
 import random
+import json
 import contextlib
 from dagops.task import TaskStatus
 from dagops import config
@@ -18,10 +19,10 @@ class AsyncWatcher:
         self.state  = State()
 
 
-    async def run_subprocess(self, key, logs_fh):
+    async def run_subprocess(self, cmd, env, logs_fh):
         p = await asyncio.create_subprocess_exec(
-            sys.executable, '-u', 'write_to_mongo.py',
-            env={'TASK_NAME': key},
+            *cmd,
+            env=env,
             stdout=logs_fh,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -53,13 +54,19 @@ class AsyncWatcher:
             await asyncio.sleep(1)
 
     async def add_process(self, task_id):
-   
         # while True:
         # key = await self.queue.get()
+        cmd = sys.executable, '-u', 'write_to_mongo.py'
+        env={'TASK_NAME': task_id}
         await self.state.set_task_status(task_id, TaskStatus.RUNNING)
+        await self.state.redis.hset(f'{self.state.prefix_tasks}:{task_id}', mapping={
+            'status': TaskStatus.RUNNING,
+            'cmd': json.dumps(cmd),
+            'env': json.dumps(env),
+        })
         logs_fh = open(f'static/logs/{task_id}.txt', 'w')
         self.logs_handlers[task_id] = logs_fh
-        task = asyncio.create_task(self.run_subprocess(task_id, logs_fh))
+        task = asyncio.create_task(self.run_subprocess(cmd, env, logs_fh))
         self.processes[task_id] = task
             # await asyncio.sleep(1)
             # status = random.choice([TaskStatus.SUCCESS, TaskStatus.FAILED])
