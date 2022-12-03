@@ -1,0 +1,16 @@
+{% extends 'base.j2' %}
+{% block title %}tasks{% endblock %}
+{% block content %}
+<h1>tasks</h1>
+<ul>
+    {% for task in tasks %}
+        <li>
+            <a href="/tasks/{{ task.id }}"><code>{{ task.id }}</code></a>
+            status <code>{{ task.status }}</code>
+            cmd <code>{{ task.cmd }}</code>
+            env <code>{{ task.env }}</code>
+            <a href="/logs/{{ task.id }}">logs</code></a>
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
