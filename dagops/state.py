@@ -9,10 +9,11 @@ class State:
         self.extraredis = extraredis or ExtraRedisAsync(decode_responses=True)
         self.redis = self.extraredis.redis
         self.TASK_PREFIX = 'task'
-        self.FILE_TASK_PREFIX = 'file_task'
+        self.DAG_PREFIX = 'dags'
+        self.FILE_DAG_PREFIX = 'file_dag'
         self.FILE_SET = 'file_set'
-        self.STALE_FILESET = 'stale_file_set'
         self.TASK_SET = 'task_set'
+        self.DAG_SET = 'dag_set'
 
     async def update_files(self, files: Iterable[str]) -> None:
         pipe = self.redis.pipeline()
@@ -29,10 +30,10 @@ class State:
     async def add_files(self, *files: str):
         await self.redis.sadd(self.FILE_SET, *files)
 
-    async def files_tasks(self, files: Iterable[str] | None = None) -> dict[str, str]:
+    async def files_dags(self, files: Iterable[str] | None = None) -> dict[str, str]:
         if files is None:
             files = await self.get_files()
-        return await self.extraredis.mget(self.FILE_TASK_PREFIX, files)
+        return await self.extraredis.mget(self.FILE_DAG_PREFIX, files)
 
     async def tasks_statuses(self, tasks: Iterable[str] | None = None) -> dict[str, str]:
         if tasks is None:
