@@ -50,6 +50,12 @@ async def task_command(task_id: str):
     return JSONResponse(json.loads(task['command']))
 
 
+@app.get('/tasks/{task_id}/env.json', response_class=JSONResponse)
+async def task_env(task_id: str):
+    task = await state.get_task_info(task_id)
+    return JSONResponse(json.loads(task['env']))
+
+
 @app.get('/tasks/', response_class=HTMLResponse)
 async def tasks(request: Request):
     tasks = await state.get_tasks_info()
