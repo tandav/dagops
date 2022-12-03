@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import dotenv
@@ -5,6 +6,7 @@ from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -37,9 +39,15 @@ async def logs(request: Request):
     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
 
 
-@app.get('/logs/{log_name}.txt', response_class=FileResponse)
-async def log(log_name: str, request: Request):
-    return FileResponse(static_folder / 'logs' / f'{log_name}.txt')
+@app.get('/logs/{task_id}.txt', response_class=FileResponse)
+async def log(task_id: str, request: Request):
+    return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
+
+
+@app.get('/tasks/{task_id}/command.json', response_class=JSONResponse)
+async def task_command(task_id: str):
+    task = await state.get_task_info(task_id)
+    return JSONResponse(json.loads(task['command']))
 
 
 @app.get('/tasks/', response_class=HTMLResponse)

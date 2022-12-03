@@ -20,13 +20,13 @@
 </thead>
 {% for task in tasks %}
     <tr>
-        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(20) }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
-        <td><code>{{ task.command }}</code></td>
+        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
         <td><code>{{ task.env }}</code></td>
-        <td><code>{{ task.created_at|format_time }}</code></td>
-        <td><code>{{ task.started_at|format_time }}</code></td>
-        <td><code>{{ task.started_at|format_time }}</code></td>
+        <td><code>{{ task.created_at|format_time if 'created_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ task.started_at|format_time if 'started_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ task.stopped_at|format_time if 'stopped_at' in task else 'NONE'}}</code></td>
         <td><code>{{ task.duration }}</code> seconds</td>
         <td><code>{{ task.returncode }}</code></td>
         <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
