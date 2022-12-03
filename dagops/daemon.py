@@ -8,7 +8,6 @@ from collections.abc import Iterable
 from dagops.task import TaskStatus
 from dagops.task import ShellTask
 from dagops.task import Task
-from dagops import config
 from dagops.state import State
 import dotenv
 from extraredis._async import ExtraRedisAsync
@@ -180,7 +179,6 @@ class AsyncWatcher:
             # new_task_ids = await aiofiles.os.listdir(self.watch_path)
             # self.state.mset_task_status({k: TaskStatus.PENDING for k in new_keys})
             statuses = await self.state.tasks_statuses()
-            print('statuses', statuses)
             for task_id, status in statuses.items():
                 print(task_id, status)
                 # if status is None:

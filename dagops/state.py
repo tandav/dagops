@@ -39,7 +39,6 @@ class State:
     async def tasks_statuses(self, tasks: Iterable[str] | None = None) -> dict[str, str]:
         if tasks is None:
             tasks = await self.get_tasks()
-            print('tasks', tasks)
         return await self.extraredis.mhget_field(self.TASK_PREFIX, 'status', tasks)
 
     async def set_shell_task(self, task: ShellTask, status: str) -> None:
