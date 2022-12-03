@@ -1,8 +1,9 @@
-import requests
-import graphlib
-import threading
 import queue
+import threading
 import time
+
+import requests
+
 from dagops.task import TaskStatus
 
 
@@ -51,16 +52,15 @@ class TaskManager(threading.Thread):
                     done.add(task)
                 else:
                     print(6)
-                    task.handle_running() # todo delete, log to something and run UI to check logs
+                    task.handle_running()  # todo delete, log to something and run UI to check logs
             self.running -= done
             print(6.1, self.running, time.time())
             time.sleep(0.1)
-            
+
             # for dag in self.dags:
             #     for task in dag.ready():
             #         task.run()
             #         dag.done(task)
-
 
             # tasks = requests.get(f'{self.mongo_uri}/test_db/tasks/').json()
             # for task in tasks:
@@ -74,7 +74,6 @@ class TaskManager(threading.Thread):
             #             f'{self.mongo_uri}/test_db/tasks/{task["_id"]}',
             #             json={'status': 'done'},
             #         )
-
 
 
 # def main():

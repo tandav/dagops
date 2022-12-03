@@ -1,5 +1,4 @@
 import asyncio
-import random
 import sys
 
 
@@ -21,7 +20,6 @@ async def main():
     done, running = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     for task in done:
         print('>', task.result())
-
 
 
 if __name__ == '__main__':

@@ -1,12 +1,10 @@
-import subprocess
 import abc
-import logging
-import uuid
-import enum
 import asyncio
-import datetime
+import uuid
 
 # class TaskStatus(enum.Enum):
+
+
 class TaskStatus:
     PENDING = 'PENDING'
     RUNNING = 'RUNNING'
@@ -19,11 +17,9 @@ class Task:
     def __init__(self):
         self.id = str(uuid.uuid4())
 
-        
     @abc.abstractmethod
     async def run(self):
         ...
-
 
     # @property
     # @abc.abstractmethod
@@ -72,19 +68,16 @@ class ShellTask(Task):
 #         else:
 #             self.status = TaskStatus.SUCCESS
 #             # self._output = output
-    
+
 #     # @property
 #     # def output(self):
 #     #     if self.status != TaskStatus.SUCCESS:
 #     #         raise RuntimeError(f'Task is not finished successfully, current status: {self.status}')
 #     #     return self._output
-        
+
 #     @abc.abstractmethod
 #     def run(self):
 #         ...
-        
-
-
 
 
 # class ShellTask(Task):
@@ -110,12 +103,12 @@ class ShellTask(Task):
 #     @classmethod
 #     def from_path(cls, path: str, env: dict[str, str] | None = None):
 #         return cls(command=['sh', path], env=env)
-        
+
 #     def run(self):
 #         print(2, self.env)
 #         self.p = subprocess.Popen(
-#             self.command, 
-#             env=self.env, 
+#             self.command,
+#             env=self.env,
 #             stdout=self.fh,
 #             # stdout=self.logger,
 #             # stdout=subprocess.PIPE,
@@ -145,7 +138,7 @@ class ShellTask(Task):
 #         # print(8, self.env)
 #         # if self.status != TaskStatus.RUNNING:
 #         #     raise RuntimeError(f'Task is not running, current status: {self.status}')
-        
+
 #         # if self.p is None:
 #         #     raise RuntimeError('p is None')
 

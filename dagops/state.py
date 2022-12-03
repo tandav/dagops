@@ -1,8 +1,6 @@
-import json
 import datetime
-from dagops.task import TaskStatus
-from dagops.task import ShellTask
 from collections.abc import Iterable
+
 from extraredis._async import ExtraRedisAsync
 
 
@@ -22,7 +20,6 @@ class State:
         pipe.sadd(self.FILE_SET, *files)
         await pipe.execute()
 
- 
     async def get_tasks(self) -> set[str]:
         return await self.redis.smembers(self.TASK_SET)
 
@@ -144,7 +141,7 @@ class State:
 
 #     async def set_task_status(self, task_id: str, status: str):
 #         await self.redis.hset(f'{self.prefix_tasks}:{task_id}', 'status', status)
-    
+
 #     async def get_task_status(self, task_id: str) -> str:
 #         return await self.redis.hget(f'{self.prefix_tasks}:{task_id}', 'status')
 

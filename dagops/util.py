@@ -1,8 +1,10 @@
-from pathlib import Path
-import aiofiles.os
 import datetime
 import operator
+from pathlib import Path
+
+import aiofiles.os
 import humanize
+
 
 def dirset(
     path: str | Path,
@@ -18,6 +20,7 @@ def dirset(
     if absolute:
         return {str(p.absolute()) for p in it}
     return set(it)
+
 
 async def path_stat(path: str) -> dict[str, float]:
     p = await aiofiles.os.stat(path)
@@ -46,6 +49,7 @@ async def dirstat(
         out.sort(key=operator.itemgetter(sort_by), reverse=reverse)
 
     return out
+
 
 def format_time(
     t: datetime.datetime,

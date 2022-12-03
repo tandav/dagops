@@ -1,20 +1,17 @@
 import asyncio
-import aiofiles.os
-import sys
-import random
-import json
 import datetime
-import contextlib
-from collections.abc import Iterable
-from dagops.task import TaskStatus
-from dagops.task import ShellTask
-from dagops.task import Task
-from dagops.state import State
+import json
+import sys
+
+import aiofiles.os
 import dotenv
 from extraredis._async import ExtraRedisAsync
 
-dotenv.load_dotenv()
+from dagops.state import State
+from dagops.task import ShellTask
+from dagops.task import TaskStatus
 
+dotenv.load_dotenv()
 
 
 class AsyncWatcher:
@@ -22,13 +19,11 @@ class AsyncWatcher:
         self.watch_path = watch_path
         self.pending_queue = asyncio.Queue()
         # self.processes = {}
-        self.tasks = {} # task_id: Task
+        self.tasks = {}  # task_id: Task
         self.running_tasks = {}
         # self.logs_handlers = {}
         self.extraredis = ExtraRedisAsync(decode_responses=True)
-        self.state  = State(self.extraredis)
-   
-
+        self.state = State(self.extraredis)
 
     async def run_subprocess(self, cmd, env, logs_fh):
         p = await asyncio.create_subprocess_exec(
@@ -39,7 +34,6 @@ class AsyncWatcher:
         )
         await p.communicate()
         return p
-        
 
     async def process_handlers(self):
         while True:
@@ -59,12 +53,14 @@ class AsyncWatcher:
                 # await self.state.set_task_status(task_id, status)
                 # task.end_time = datetime.datetime.now()
                 end_time = datetime.datetime.now()
-                await self.extraredis.hset_fields(self.state.TASK_PREFIX, task_id, {
-                    'status': status,
-                    'end_time': str(end_time),
-                    'duration': (end_time - self.tasks[task_id].start_time).seconds,
-                    'returncode': p.returncode,
-                })
+                await self.extraredis.hset_fields(
+                    self.state.TASK_PREFIX, task_id, {
+                        'status': status,
+                        'end_time': str(end_time),
+                        'duration': (end_time - self.tasks[task_id].start_time).seconds,
+                        'returncode': p.returncode,
+                    },
+                )
 
                 # self.logs_handlers[task_id].close()
                 # del self.logs_handlers[task_id]
@@ -78,7 +74,6 @@ class AsyncWatcher:
     #     task = ShellTask(cmd, env)
     #     return task
 
-        
         # await self.state.set_task_status(task.id, TaskStatus.RUNNING)
         # await self.state.redis.hset(f'{self.state.prefix_tasks}:{task.id}', mapping={
         #     'status': TaskStatus.RUNNING,
@@ -86,7 +81,6 @@ class AsyncWatcher:
         #     'env': json.dumps(env),
         # })
         # self.processes[task.id] = asyncio.create_task(task.run())
-
 
         # key = await self.queue.get()
         # logs_fh = open(f'static/logs/{task_id}.txt', 'w')
@@ -102,25 +96,26 @@ class AsyncWatcher:
     async def start_task(self, task_id: str):
         task = self.tasks[task_id]
         task.start_time = datetime.datetime.now()
-        await self.extraredis.hset_fields(self.state.TASK_PREFIX, task_id, {
-            'status': TaskStatus.RUNNING,
-            'command': json.dumps(task.command),
-            'env': json.dumps(task.env),
-            'start_time': str(task.start_time),
-        })
+        await self.extraredis.hset_fields(
+            self.state.TASK_PREFIX, task_id, {
+                'status': TaskStatus.RUNNING,
+                'command': json.dumps(task.command),
+                'env': json.dumps(task.env),
+                'start_time': str(task.start_time),
+            },
+        )
         # await self.state.set_shell_task(task, TaskStatus.RUNNING)
         self.running_tasks[task_id] = asyncio.create_task(task.run())
-        
+
         # self.running_tasks[task_id] = asyncio.create_task(task.run())
         # task = self.tasks[task_id]
         # self.running_tasks[task_id] = asyncio.create_task(task.run())
 
-
     async def stop_task(self):
         pass
 
-            
     # async def update_files_tasks(self, files: Iterable[str]) -> None:
+
     async def update_files_tasks(self) -> None:
         """create tasks for new files"""
         while True:
@@ -142,14 +137,12 @@ class AsyncWatcher:
                 await self.pending_queue.put(task)
             await asyncio.sleep(1)
 
-
     async def watch_directory(self):
         while True:
             files = set(await aiofiles.os.listdir(self.watch_path))
             await self.state.update_files(files)
             # await self.update_files_tasks()
             await asyncio.sleep(1)
- 
 
     async def cancel_orphaned_tasks(self):
         # tasks = await self.state.get_tasks()
@@ -160,7 +153,6 @@ class AsyncWatcher:
             if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
                 tasks_to_cancel[task_id] = TaskStatus.CANCELED
         await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', tasks_to_cancel)
-
 
     async def process_tasks(self):
         await self.cancel_orphaned_tasks()
@@ -174,7 +166,6 @@ class AsyncWatcher:
                 if status == TaskStatus.PENDING:
                     await self.start_task(task_id)
             await asyncio.sleep(1)
-    
 
     async def main(self):
         async with asyncio.TaskGroup() as tg:
@@ -182,7 +173,6 @@ class AsyncWatcher:
             tg.create_task(self.process_tasks())
             tg.create_task(self.process_handlers())
             tg.create_task(self.update_files_tasks())
-     
 
 
 if __name__ == '__main__':

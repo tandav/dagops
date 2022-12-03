@@ -1,7 +1,8 @@
+import os
+
+import dotenv
 import pytest
 from redis import Redis
-import dotenv
-import os
 
 dotenv.load_dotenv()
 

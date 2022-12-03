@@ -1,9 +1,6 @@
-import subprocess
-import abc
-import time
 import random
-from typing import Any
-
+import subprocess
+import time
 
 
 class ConstanntTask(Task):
@@ -14,6 +11,7 @@ class ConstanntTask(Task):
     def run(self):
         time.sleep(2 * random.random())
         return self.value
+
 
 class SumTask(Task):
     def __init__(self, deps: list[str], **kwargs):
@@ -53,6 +51,6 @@ class ShellTask(Task):
     @classmethod
     def from_path(cls, deps, path: str, env: dict[str, str] | None = None):
         return cls(deps, command=['sh', path], env=env)
-        
+
     def run(self):
         subprocess.run(self.command, env=self.env)

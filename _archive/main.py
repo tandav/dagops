@@ -1,10 +1,9 @@
-import sys
 import graphlib
-import concurrent.futures
+import sys
 
+from dagops.manager import DagManager
 from dagops.task import ShellTask
 from dagops.task import Task
-from dagops.manager import DagManager
 
 
 class Dag:
@@ -36,6 +35,7 @@ class Dag:
                 task.run()
                 self.dag.done(task)
 
+
 def main():
     track_id = '637e518db6e4c5e0959fd74f'
     command = [sys.executable, 'write_to_mongo.py']
@@ -43,7 +43,7 @@ def main():
     pitch = ShellTask(command=command, env={'TRACK_ID': track_id, 'TASK_NAME': 'pitch'})
     image = ShellTask(command=command, env={'TRACK_ID': track_id, 'TASK_NAME': 'image'})
     video = ShellTask(command=command, env={'TRACK_ID': track_id, 'TASK_NAME': 'video'})
-    
+
     dag = Dag()
     dag.add_task(audio)
     dag.add_task(pitch)

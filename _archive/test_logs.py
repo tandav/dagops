@@ -1,17 +1,17 @@
 # from dagops.manager import DagManager
+import sys
+import time
+
 from dagops.manager import TaskManager
 from dagops.task import ShellTask
 from dagops.task import TaskStatus
-import sys
-import subprocess
-import time
 
 
 def main():
 
     dag_manager = TaskManager()
     # dag_manager.run()
-    dag_manager.start() 
+    dag_manager.start()
 
     command = [sys.executable, '-u', 'write_to_mongo.py']
     task1 = ShellTask(command=command, env={'TASK_NAME': 'task1'}, name='1')
@@ -21,7 +21,7 @@ def main():
     # # dag_manager.task_queue.put(task2, block=False)
     # # dag_manager.task_queue.put(task3, block=False)
     print('main 1')
-    
+
     dag_manager.task_queue.put(task1)
     dag_manager.task_queue.put(task2)
     dag_manager.task_queue.put(task3)
@@ -35,9 +35,9 @@ def main():
 
     # dag_manager.finished.set()
     # p = subprocess.Popen(
-    #         command, 
+    #         command,
     #         env={'TASK_NAME': 'task1'},
-    #         stdout=subprocess.PIPE, 
+    #         stdout=subprocess.PIPE,
     #         stderr=subprocess.STDOUT,  # redirect stderr to stdout
     #         text=True,
     #         # universal_newlines=True,
@@ -52,7 +52,6 @@ if __name__ == '__main__':
     main()
 
 
-
 # Example
 # command = [sys.executable, '-u', 'write_to_mongo.py']
 
@@ -60,4 +59,3 @@ if __name__ == '__main__':
 # with subprocess.Popen(command, stdout=subprocess.PIPE, bufsize=1, text=True) as p:
 #     for line in p.stdout:
 #         print(line) # process line here
-

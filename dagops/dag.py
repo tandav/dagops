@@ -1,6 +1,7 @@
-from dagops.task import Task
-import graphlib
 import asyncio
+import graphlib
+
+from dagops.task import Task
 
 
 class Dag:

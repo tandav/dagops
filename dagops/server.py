@@ -1,7 +1,6 @@
-import json
 from pathlib import Path
 
-import aiofiles.os
+import dotenv
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import FileResponse
@@ -9,9 +8,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
+
 from dagops import util
 from dagops.state import State
-import dotenv
 
 dotenv.load_dotenv()
 
@@ -39,7 +38,7 @@ async def logs(request: Request):
 
 
 @app.get('/logs/{log_name}.txt', response_class=FileResponse)
-async def logs(log_name: str, request: Request):
+async def log(log_name: str, request: Request):
     return FileResponse(static_folder / 'logs' / f'{log_name}.txt')
 
 
@@ -47,6 +46,7 @@ async def logs(log_name: str, request: Request):
 async def tasks(request: Request):
     tasks = await state.get_tasks_info()
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+
 
 @app.get('/tasks/{task_id}', response_class=HTMLResponse)
 async def task(request: Request, task_id: str):
@@ -58,6 +58,7 @@ async def task(request: Request, task_id: str):
 async def dags(request: Request):
     dags = []
     return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
+
 
 @app.get('/dags/{dag_id}', response_class=HTMLResponse)
 async def dag(request: Request):
