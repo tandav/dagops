@@ -52,3 +52,14 @@ async def tasks(request: Request):
 async def task(request: Request, task_id: str):
     task = await state.get_task_info(task_id)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
+
+
+@app.get('/dags/', response_class=HTMLResponse)
+async def dags(request: Request):
+    dags = []
+    return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
+
+@app.get('/dags/{dag_id}', response_class=HTMLResponse)
+async def dag(request: Request):
+    dag = {}
+    return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag})

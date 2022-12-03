@@ -9,8 +9,8 @@
             status <code>{{ v.status }}</code>
             command <code>{{ v.command }}</code>
             env <code>{{ v.env }}</code>
-            start_time <code>{{ v.start_time }}</code>
-            duration <code>{{ v.duration }}</code>
+            start_time <code>{{ v.start_time|format_time }}</code>
+            duration <code>{{ v.duration }}</code> seconds
             returncode <code>{{ v.returncode }}</code>
             <a href="/logs/{{ k }}.txt">logs</code></a>
         </li>

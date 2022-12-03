@@ -198,7 +198,8 @@ class AsyncWatcher:
             # self.state.mset_task_status({k: TaskStatus.PENDING for k in new_keys})
             statuses = await self.state.tasks_statuses()
             for task_id, status in statuses.items():
-                print(task_id, status)
+                if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
+                    print(task_id, status)
                 # if status is None:
                 #     await self.redis.set(key, TaskStatus.PENDING)
                 if status == TaskStatus.PENDING:

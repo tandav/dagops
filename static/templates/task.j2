@@ -2,6 +2,11 @@
 {% block title %}task{% endblock %}
 {% block content %}
 <h1>task</h1>
+id <code>{{ task.id }}</code><br/>
+start_time <code>{{ task.start_time|format_time }}</code><br/>
+end_time <code>{{ task.end_time|format_time }}</code><br/>
+duration <code>{{ task.duration }}</code><br/>
+returncode <code>{{ task.returncode }}</code><br/>
 status <code>{{ task.status }}</code><br/>
 command <code>{{ task.command }}</code><br/>
 env <code>{{ task.env }}</code><br/>

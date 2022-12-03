@@ -1,4 +1,5 @@
 import json
+import datetime
 from dagops.task import TaskStatus
 from dagops.task import ShellTask
 from collections.abc import Iterable
@@ -44,15 +45,26 @@ class State:
     async def set_task_status(self, task_id: str, status: str):
         await self.extraredis.hset_field(self.TASK_PREFIX, task_id, 'status', status)
 
+    def format_task_info(self, task_info: dict) -> str:
+        """inplace"""
+        task_info['start_time'] = datetime.datetime.fromisoformat(task_info['start_time'])
+        task_info['end_time'] = datetime.datetime.fromisoformat(task_info['end_time'])
+        task_info['duration'] = int(task_info['duration'])
+
     async def get_task_info(self, task_id: str) -> str:
         kv = await self.extraredis.hget_fields(self.TASK_PREFIX, task_id)
         kv['id'] = task_id
+        self.format_task_info(kv)
         return kv
 
-    async def get_tasks_info(self, tasks: Iterable[str] | None = None) -> str:
+    async def get_tasks_info(self, tasks: Iterable[str] | None = None) -> dict[str, dict]:
         if tasks is None:
             tasks = await self.get_tasks()
-        return await self.extraredis.mhget_fields(self.TASK_PREFIX, tasks)
+        kv = await self.extraredis.mhget_fields(self.TASK_PREFIX, tasks)
+        for task_id, task_info in kv.items():
+            task_info['id'] = task_id
+            self.format_task_info(task_info)
+        return kv
 
 #     def __init__(self, redis: Redis | None = None):
 #         dotenv.load_dotenv()
