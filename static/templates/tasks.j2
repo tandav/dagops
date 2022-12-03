@@ -1,19 +1,36 @@
 {% extends 'base.j2' %}
 {% block title %}tasks{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="/static/css/table.css"/>{% endblock %}
 {% block content %}
 <h1>tasks</h1>
-<ul>
-    {% for k, v in tasks.items() %}
-        <li>
-            <a href="/tasks/{{ k }}"><code>{{ k }}</code></a>
-            status <code>{{ v.status }}</code>
-            command <code>{{ v.command }}</code>
-            env <code>{{ v.env }}</code>
-            start_time <code>{{ v.start_time|format_time }}</code>
-            duration <code>{{ v.duration }}</code> seconds
-            returncode <code>{{ v.returncode }}</code>
-            <a href="/logs/{{ k }}.txt">logs</code></a>
-        </li>
-    {% endfor %}
-</ul>
+<table>
+<tr>
+<th>id</th>
+<th>status</th>
+<th>command</th>
+<th>env</th>
+<th>created_at</th>
+<th>started_at</th>
+<th>stopped_at</th>
+<th>duration</th>
+<th>returncode</th>
+<th>logs</th>
+</tr>
+<thead>
+</thead>
+{% for task in tasks %}
+    <tr>
+        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id }}</code></a></td>
+        <td><code>{{ task.status }}</code></td>
+        <td><code>{{ task.command }}</code></td>
+        <td><code>{{ task.env }}</code></td>
+        <td><code>{{ task.created_at|format_time }}</code></td>
+        <td><code>{{ task.started_at|format_time }}</code></td>
+        <td><code>{{ task.started_at|format_time }}</code></td>
+        <td><code>{{ task.duration }}</code> seconds</td>
+        <td><code>{{ task.returncode }}</code></td>
+        <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
+    </tr>
+{% endfor %}
+</table>
 {% endblock %}

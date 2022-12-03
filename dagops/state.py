@@ -44,9 +44,14 @@ class State:
 
     def format_task_info(self, task_info: dict) -> str:
         """inplace"""
-        task_info['start_time'] = datetime.datetime.fromisoformat(task_info['start_time'])
-        task_info['end_time'] = datetime.datetime.fromisoformat(task_info['end_time'])
-        task_info['duration'] = int(task_info['duration'])
+        if 'created_at' in task_info:
+            task_info['created_at'] = datetime.datetime.fromisoformat(task_info['created_at'])
+        if 'started_at' in task_info:
+            task_info['started_at'] = datetime.datetime.fromisoformat(task_info['started_at'])
+        if 'stopped_at' in task_info:
+            task_info['stopped_at'] = datetime.datetime.fromisoformat(task_info['stopped_at'])
+        if 'duration' in task_info:
+            task_info['duration'] = int(task_info['duration'])
 
     async def get_task_info(self, task_id: str) -> str:
         kv = await self.extraredis.hget_fields(self.TASK_PREFIX, task_id)
@@ -63,23 +68,6 @@ class State:
             self.format_task_info(task_info)
         return kv
 
-#     def __init__(self, redis: Redis | None = None):
-#         dotenv.load_dotenv()
-#         self.redis = redis or Redis(
-#             host=os.environ['REDIS_HOST'],
-#             port=os.environ['REDIS_PORT'],
-#             password=os.environ['REDIS_PASSWORD'],
-#         )
-#         self.prefix_tasks = 'tasks'
-
-#     # @staticmethod
-#     # def remove_key_level(keys: list[str], level: int) -> list[str]:
-#     #     return [key.split(':')[level] for key in keys]
-#     #     return [key.split(':')[1] for key in keys]
-
-#     @staticmethod
-#     def remove_table_prefix(keys: list[bytes]) -> list[bytes]:
-#         return [key.split(b':')[1] for key in keys]
 
 #     async def prefix_mget(self, prefix: bytes, keys: list[str] | None = None) -> dict[str, bytes]:
 #         if keys is None:

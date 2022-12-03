@@ -45,6 +45,9 @@ async def log(log_name: str, request: Request):
 @app.get('/tasks/', response_class=HTMLResponse)
 async def tasks(request: Request):
     tasks = await state.get_tasks_info()
+    for task in tasks.values():
+        print(task)
+    tasks = sorted(tasks.values(), key=lambda t: t['created_at'], reverse=True)
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
 
 

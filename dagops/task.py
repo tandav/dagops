@@ -37,8 +37,8 @@ class ShellTask(Task):
         self.command = command
         self.env = env or {}
         self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
-        self.start_time = None
-        self.end_time = None
+        self.started_at = None
+        self.stopped_at = None
 
     async def run(self):
         p = await asyncio.create_subprocess_exec(

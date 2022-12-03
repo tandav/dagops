@@ -51,13 +51,13 @@ class AsyncWatcher:
                 task_id = task_to_task_id[aio_task]
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
                 # await self.state.set_task_status(task_id, status)
-                # task.end_time = datetime.datetime.now()
-                end_time = datetime.datetime.now()
+                # task.stopped_at = datetime.datetime.now()
+                stopped_at = datetime.datetime.now()
                 await self.extraredis.hset_fields(
                     self.state.TASK_PREFIX, task_id, {
                         'status': status,
-                        'end_time': str(end_time),
-                        'duration': (end_time - self.tasks[task_id].start_time).seconds,
+                        'stopped_at': str(stopped_at),
+                        'duration': (stopped_at - self.tasks[task_id].started_at).seconds,
                         'returncode': p.returncode,
                     },
                 )
@@ -95,13 +95,13 @@ class AsyncWatcher:
 
     async def start_task(self, task_id: str):
         task = self.tasks[task_id]
-        task.start_time = datetime.datetime.now()
+        task.started_at = datetime.datetime.now()
         await self.extraredis.hset_fields(
             self.state.TASK_PREFIX, task_id, {
                 'status': TaskStatus.RUNNING,
                 'command': json.dumps(task.command),
                 'env': json.dumps(task.env),
-                'start_time': str(task.start_time),
+                'started_at': str(task.started_at),
             },
         )
         # await self.state.set_shell_task(task, TaskStatus.RUNNING)
@@ -132,7 +132,12 @@ class AsyncWatcher:
                 continue
             await self.extraredis.mset(self.state.FILE_TASK_PREFIX, to_update)
             await self.extraredis.redis.sadd(self.state.TASK_SET, *to_update.values())
-            await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', dict.fromkeys(to_update.values(), TaskStatus.PENDING))
+            # await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', dict.fromkeys(to_update.values(), TaskStatus.PENDING))
+            now = datetime.datetime.now()
+            await self.extraredis.mhset_fields(
+                self.state.TASK_PREFIX,
+                {k: {'created_at': str(now), 'status': TaskStatus.PENDING} for k in to_update.values()},
+            )
             for task in to_update.values():
                 await self.pending_queue.put(task)
             await asyncio.sleep(1)
@@ -159,12 +164,14 @@ class AsyncWatcher:
 
         while True:
             print('watching', self.watch_path)
-            statuses = await self.state.tasks_statuses()
-            for task_id, status in statuses.items():
-                if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
-                    print(task_id, status)
-                if status == TaskStatus.PENDING:
-                    await self.start_task(task_id)
+            task = await self.pending_queue.get()
+            await self.start_task(task)
+            # statuses = await self.state.tasks_statuses()
+            # for task_id, status in statuses.items():
+            #     if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
+            #         print(task_id, status)
+            #     if status == TaskStatus.PENDING:
+            #         await self.start_task(task_id)
             await asyncio.sleep(1)
 
     async def main(self):
