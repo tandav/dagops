@@ -1,0 +1,14 @@
+body {
+    max-width: 1300px;
+}
+
+table {
+    font-family: monospace;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+td {
+    padding: 0px 6px 0px 6px;
+}

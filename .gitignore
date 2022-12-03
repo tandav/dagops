@@ -1,3 +1,4 @@
 static/*
 !static/templates
+!static/css
 *.ipynb
