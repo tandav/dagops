@@ -7,8 +7,11 @@
         <li>
             <a href="/tasks/{{ k }}"><code>{{ k }}</code></a>
             status <code>{{ v.status }}</code>
-            cmd <code>{{ v.command }}</code>
+            command <code>{{ v.command }}</code>
             env <code>{{ v.env }}</code>
+            start_time <code>{{ v.start_time }}</code>
+            duration <code>{{ v.duration }}</code>
+            returncode <code>{{ v.returncode }}</code>
             <a href="/logs/{{ k }}.txt">logs</code></a>
         </li>
     {% endfor %}

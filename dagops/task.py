@@ -4,6 +4,7 @@ import logging
 import uuid
 import enum
 import asyncio
+import datetime
 
 # class TaskStatus(enum.Enum):
 class TaskStatus:
@@ -40,6 +41,8 @@ class ShellTask(Task):
         self.command = command
         self.env = env or {}
         self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
+        self.start_time = None
+        self.end_time = None
 
     async def run(self):
         p = await asyncio.create_subprocess_exec(

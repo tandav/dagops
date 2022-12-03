@@ -3,6 +3,7 @@ import aiofiles.os
 import sys
 import random
 import json
+import datetime
 import contextlib
 from collections.abc import Iterable
 from dagops.task import TaskStatus
@@ -49,15 +50,22 @@ class AsyncWatcher:
             task_to_task_id = {t: k for k, t in self.running_tasks.items()}
             done, running = await asyncio.wait(task_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             # assert len(done) == 1
-            print('done', done)
-            for task in done:
-                p = task.result()
+            for aio_task in done:
+                p = aio_task.result()
                 # await p.communicate()
                 assert p.returncode is not None
-                task_id = task_to_task_id[task]
-                print(task_id, p, p.returncode)
+                task_id = task_to_task_id[aio_task]
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
-                await self.state.set_task_status(task_id, status)
+                # await self.state.set_task_status(task_id, status)
+                # task.end_time = datetime.datetime.now()
+                end_time = datetime.datetime.now()
+                await self.extraredis.hset_fields(self.state.TASK_PREFIX, task_id, {
+                    'status': status,
+                    'end_time': str(end_time),
+                    'duration': (end_time - self.tasks[task_id].start_time).seconds,
+                    'returncode': p.returncode,
+                })
+
                 # self.logs_handlers[task_id].close()
                 # del self.logs_handlers[task_id]
                 del self.running_tasks[task_id]
@@ -91,12 +99,22 @@ class AsyncWatcher:
 
     async def start_task(self, task_id: str):
         task = self.tasks[task_id]
-        await self.state.set_shell_task(task, TaskStatus.RUNNING)
+        task.start_time = datetime.datetime.now()
+        await self.extraredis.hset_fields(self.state.TASK_PREFIX, task_id, {
+            'status': TaskStatus.RUNNING,
+            'command': json.dumps(task.command),
+            'env': json.dumps(task.env),
+            'start_time': str(task.start_time),
+        })
+        # await self.state.set_shell_task(task, TaskStatus.RUNNING)
         self.running_tasks[task_id] = asyncio.create_task(task.run())
+        
         # self.running_tasks[task_id] = asyncio.create_task(task.run())
         # task = self.tasks[task_id]
         # self.running_tasks[task_id] = asyncio.create_task(task.run())
 
+    async def stop_task(self):
+        pass
             
     # async def update_files_tasks(self, files: Iterable[str]) -> None:
     async def update_files_tasks(self) -> None:
@@ -185,6 +203,7 @@ class AsyncWatcher:
                 #     await self.redis.set(key, TaskStatus.PENDING)
                 if status == TaskStatus.PENDING:
                     await self.start_task(task_id)
+                # elif status == TaskStatus.RUNNING:
                     # await self.add_shell_task(task_id)
                     # self.queue.put_nowait(key)
             # for file in await aiofiles.os.listdir(path):

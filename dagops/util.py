@@ -1,6 +1,7 @@
 from pathlib import Path
 import aiofiles.os
 import datetime
+import operator
 import humanize
 
 def dirset(
@@ -44,4 +45,16 @@ async def dirstat(
             raise ValueError(f'Invalid sort_by: {sort_by}')
         out.sort(key=operator.itemgetter(sort_by), reverse=reverse)
 
+    return out
+
+def format_time(
+    t: datetime.datetime,
+    absolute: bool = False,
+    pad: bool = False,
+) -> str:
+    if absolute or (datetime.datetime.now() - t).days > 30:
+        return t.strftime('%Y %b %d %H:%M')
+    out = humanize.naturaltime(t)
+    if pad:
+        out = out.rjust(17)
     return out

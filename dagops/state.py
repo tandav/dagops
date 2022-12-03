@@ -41,14 +41,6 @@ class State:
             tasks = await self.get_tasks()
         return await self.extraredis.mhget_field(self.TASK_PREFIX, 'status', tasks)
 
-    async def set_shell_task(self, task: ShellTask, status: str) -> None:
-        mapping = {
-            'status': status,
-            'command': json.dumps(task.command),
-            'env': json.dumps(task.env),
-        }
-        await self.extraredis.hset_fields(self.TASK_PREFIX, task.id, mapping)
-
     async def set_task_status(self, task_id: str, status: str):
         await self.extraredis.hset_field(self.TASK_PREFIX, task_id, 'status', status)
 
