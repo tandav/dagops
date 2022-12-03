@@ -3,7 +3,7 @@
 {% block content %}
 <h1>task</h1>
 status <code>{{ task.status }}</code><br/>
-cmd <code>{{ task.cmd }}</code><br/>
+command <code>{{ task.command }}</code><br/>
 env <code>{{ task.env }}</code><br/>
-<a href="/logs/{{ task.id }}">logs</code></a><br/>
+<a href="/logs/{{ task.id }}.txt">logs</code></a><br/>
 {% endblock %}

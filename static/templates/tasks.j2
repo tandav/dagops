@@ -3,13 +3,13 @@
 {% block content %}
 <h1>tasks</h1>
 <ul>
-    {% for task in tasks %}
+    {% for k, v in tasks.items() %}
         <li>
-            <a href="/tasks/{{ task.id }}"><code>{{ task.id }}</code></a>
-            status <code>{{ task.status }}</code>
-            cmd <code>{{ task.cmd }}</code>
-            env <code>{{ task.env }}</code>
-            <a href="/logs/{{ task.id }}">logs</code></a>
+            <a href="/tasks/{{ k }}"><code>{{ k }}</code></a>
+            status <code>{{ v.status }}</code>
+            cmd <code>{{ v.command }}</code>
+            env <code>{{ v.env }}</code>
+            <a href="/logs/{{ k }}.txt">logs</code></a>
         </li>
     {% endfor %}
 </ul>

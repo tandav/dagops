@@ -52,6 +52,15 @@ class State:
     async def set_task_status(self, task_id: str, status: str):
         await self.extraredis.hset_field(self.TASK_PREFIX, task_id, 'status', status)
 
+    async def get_task_info(self, task_id: str) -> str:
+        kv = await self.extraredis.hget_fields(self.TASK_PREFIX, task_id)
+        kv['id'] = task_id
+        return kv
+
+    async def get_tasks_info(self, tasks: Iterable[str] | None = None) -> str:
+        if tasks is None:
+            tasks = await self.get_tasks()
+        return await self.extraredis.mhget_fields(self.TASK_PREFIX, tasks)
 
 #     def __init__(self, redis: Redis | None = None):
 #         dotenv.load_dotenv()
