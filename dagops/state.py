@@ -18,7 +18,8 @@ class State:
     async def update_files(self, files: Iterable[str]) -> None:
         pipe = self.redis.pipeline()
         pipe.delete(self.FILE_SET)
-        pipe.sadd(self.FILE_SET, *files)
+        if files:
+            pipe.sadd(self.FILE_SET, *files)
         await pipe.execute()
 
     async def get_tasks(self) -> set[str]:

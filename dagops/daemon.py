@@ -10,6 +10,7 @@ from extraredis._async import ExtraRedisAsync
 from dagops.dag import Dag
 from dagops.state import State
 from dagops.task import ShellTask
+from dagops.task import Task
 from dagops.task import TaskStatus
 
 dotenv.load_dotenv()
@@ -19,13 +20,11 @@ class AsyncWatcher:
     def __init__(self, watch_path: str):
         self.watch_path = watch_path
         self.pending_queue = asyncio.Queue(maxsize=10)
-        self.done_queue = asyncio.Queue()
-        # self.processes = {}
         self.tasks = {}  # task_id: Task
         self.dags = {}  # dag_id: Dag
         self.running_tasks = {}
         self.running_dags = {}
-        # self.logs_handlers = {}
+        self.task_to_dag = {}
         self.extraredis = ExtraRedisAsync(decode_responses=True)
         self.state = State(self.extraredis)
 
@@ -67,7 +66,8 @@ class AsyncWatcher:
                 # del self.logs_handlers[task_id]
                 del self.running_tasks[task_id]
                 del self.tasks[task_id]
-                await self.done_queue.put(task_id)
+                dag = self.task_to_dag[task_id]
+                await dag.done_queue.put(task_id)
             await asyncio.sleep(1)
 
     async def dag_handlers(self):
@@ -122,11 +122,11 @@ class AsyncWatcher:
             # print(await redis.get(key))
             # self.queue.task_done()
 
-    async def start_task(self, task_id: str):
-        task = self.tasks[task_id]
+    async def start_task(self, task: Task):
+        # task = self.tasks[task_id]
         task.started_at = datetime.datetime.now()
         await self.extraredis.hset_fields(
-            self.state.TASK_PREFIX, task_id, {
+            self.state.TASK_PREFIX, task.id, {
                 'status': TaskStatus.RUNNING,
                 'command': json.dumps(task.command),
                 'env': json.dumps(task.env),
@@ -134,7 +134,7 @@ class AsyncWatcher:
             },
         )
         # await self.state.set_shell_task(task, TaskStatus.RUNNING)
-        self.running_tasks[task_id] = asyncio.create_task(task.run())
+        self.running_tasks[task.id] = asyncio.create_task(task.run())
 
         # self.running_tasks[task_id] = asyncio.create_task(task.run())
         # task = self.tasks[task_id]
@@ -156,8 +156,14 @@ class AsyncWatcher:
             c: {a, b},
             e: {c, d},
         }
-        dag = Dag(graph, self.pending_queue, self.done_queue)
+        # pending_queue = asyncio.Queue()
+        done_queue = asyncio.Queue()
+        dag = Dag(graph, self.pending_queue, done_queue)
         dag_tasks = {t.id for t in dag.tasks}
+
+        for task in dag.tasks:
+            self.tasks[task.id] = task
+            self.task_to_dag[task.id] = dag
 
         now = datetime.datetime.now()
         await self.extraredis.redis.sadd(self.state.DAG_SET, dag.id)
@@ -167,12 +173,22 @@ class AsyncWatcher:
                 'id': dag.id,
                 'created_at': str(now),
                 'status': TaskStatus.PENDING,
+                'graph': json.dumps(dag.id_graph),
             },
         )
         await self.extraredis.mhset_fields(
-            self.state.TASK_PREFIX,
-            {task_id: {'id': task_id, 'created_at': str(now), 'status': TaskStatus.PENDING} for task_id in dag_tasks},
+            self.state.TASK_PREFIX, {
+                task_id: {
+                    'id': task_id,
+                    'created_at': str(now),
+                    'status': TaskStatus.PENDING,
+                    'dag_id': dag.id,
+                } for task_id in dag_tasks
+            },
         )
+        await self.extraredis.set(self.state.FILE_DAG_PREFIX, file, dag.id)
+        self.running_dags[dag.id] = asyncio.create_task(dag.run())
+
         print('dag for file', file, 'created')
         return dag
 
@@ -183,28 +199,29 @@ class AsyncWatcher:
         while True:
             files = await self.state.get_files()
             files_dags = await self.state.files_dags(files)
-            to_update = {}
+            # print('files_dags', files_dags)
+            # to_update = {}
             for file, dag_id in files_dags.items():
                 if dag_id is None:
                     # task = ShellTask(command=[sys.executable, '-u', 'write_to_mongo.py'], env={'TASK_NAME': file})
                     # self.tasks[task.id] = task
                     dag = await self.create_dag(file)
                     self.dags[dag.id] = dag
-                    to_update[file] = dag.id
-            if len(to_update) == 0:
-                await asyncio.sleep(1)
-                continue
-            await self.extraredis.mset(self.state.FILE_DAG_PREFIX, to_update)
+                    # to_update[file] = dag.id
+            # if len(to_update) == 0:
+            #     await asyncio.sleep(1)
+            #     continue
+            # await self.extraredis.mset(self.state.FILE_DAG_PREFIX, to_update)
             # await self.extraredis.redis.sadd(self.state.DAG_SET, *to_update.values())
             # await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', dict.fromkeys(to_update.values(), TaskStatus.PENDING))
-            datetime.datetime.now()
+            # datetime.datetime.now()
             # await self.extraredis.mhset_fields(
             #     self.state.TASK_PREFIX,
             #     {k: {'created_at': str(now), 'status': TaskStatus.PENDING} for k in to_update.values()},
             # )
-            for dag in to_update.values():
+            # for dag in to_update.values():
                 # await self.pending_queue.put(dag)
-                self.running_dags[dag.id] = asyncio.create_task(dag.run())
+                # self.running_dags[dag.id] = asyncio.create_task(dag.run())
 
             await asyncio.sleep(1)
 
