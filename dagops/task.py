@@ -1,11 +1,10 @@
 import abc
 import asyncio
 import uuid
+import enum
 
-# class TaskStatus(enum.Enum):
-
-
-class TaskStatus:
+class TaskStatus(enum.Enum):
+# class TaskStatus:
     PENDING = 'PENDING'
     RUNNING = 'RUNNING'
     SUCCESS = 'SUCCESS'

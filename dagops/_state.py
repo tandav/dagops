@@ -16,6 +16,10 @@ class State:
         self.FILE_DAG_PREFIX = 'file_dag'
         self.TASK_SET = 'task_set'
         self.DAG_SET = 'dag_set'
+        self.DAG_TASKS = 'dag_tasks'
+
+    def add_dag_tasks(self, dag: str, *tasks: str):
+        self.redis.sadd(self.addprefix(self.DAG_TASKS, dag), *tasks)
 
     async def update_files(self, files: Iterable[str]) -> None:
         pipe = self.redis.pipeline()
@@ -78,6 +82,15 @@ class State:
         for task_id, task_info in kv.items():
             task_info['id'] = task_id
             self.format_info(task_info)
+        return kv
+
+    async def get_dag_info(self, dag_id: str) -> str:
+        kv = await self.extraredis.hget_fields(self.DAG_PREFIX, dag_id)
+        kv['id'] = dag_id
+        for task_id, task_info in kv['tasks'].items():
+            task_info['id'] = task_id
+            self.format_info(task_info)
+        self.format_info(kv)
         return kv
 
     async def get_dags_info(self, dags: Iterable[str] | None = None) -> dict[str, dict]:
