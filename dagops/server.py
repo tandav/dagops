@@ -59,9 +59,7 @@ async def task_env(task_id: str):
 @app.get('/tasks/', response_class=HTMLResponse)
 async def tasks(request: Request):
     tasks = await state.get_tasks_info()
-    for task in tasks.values():
-        print(task)
-    tasks = sorted(tasks.values(), key=lambda t: t['created_at'], reverse=True)
+    tasks = sorted(tasks.values(), key=lambda x: x['created_at'], reverse=True)
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
 
 
@@ -73,7 +71,9 @@ async def task(request: Request, task_id: str):
 
 @app.get('/dags/', response_class=HTMLResponse)
 async def dags(request: Request):
-    dags = []
+    dags = await state.get_dags_info()
+    dags = sorted(dags.values(), key=lambda x: x['created_at'], reverse=True)
+    print(dags)
     return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
 
 

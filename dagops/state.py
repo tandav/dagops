@@ -54,16 +54,16 @@ class State:
     async def set_task_status(self, task_id: str, status: str):
         await self.extraredis.hset_field(self.TASK_PREFIX, task_id, 'status', status)
 
-    def format_task_info(self, task_info: dict) -> str:
+    def format_info(self, info: dict) -> str:
         """inplace"""
-        if 'created_at' in task_info:
-            task_info['created_at'] = datetime.datetime.fromisoformat(task_info['created_at'])
-        if 'started_at' in task_info:
-            task_info['started_at'] = datetime.datetime.fromisoformat(task_info['started_at'])
-        if 'stopped_at' in task_info:
-            task_info['stopped_at'] = datetime.datetime.fromisoformat(task_info['stopped_at'])
-        if 'duration' in task_info:
-            task_info['duration'] = int(task_info['duration'])
+        if 'created_at' in info:
+            info['created_at'] = datetime.datetime.fromisoformat(info['created_at'])
+        if 'started_at' in info:
+            info['started_at'] = datetime.datetime.fromisoformat(info['started_at'])
+        if 'stopped_at' in info:
+            info['stopped_at'] = datetime.datetime.fromisoformat(info['stopped_at'])
+        if 'duration' in info:
+            info['duration'] = int(info['duration'])
 
     async def get_task_info(self, task_id: str) -> str:
         kv = await self.extraredis.hget_fields(self.TASK_PREFIX, task_id)
@@ -77,5 +77,14 @@ class State:
         kv = await self.extraredis.mhget_fields(self.TASK_PREFIX, tasks)
         for task_id, task_info in kv.items():
             task_info['id'] = task_id
-            self.format_task_info(task_info)
+            self.format_info(task_info)
+        return kv
+
+    async def get_dags_info(self, dags: Iterable[str] | None = None) -> dict[str, dict]:
+        if dags is None:
+            dags = await self.redis.smembers(self.DAG_SET)
+        kv = await self.extraredis.mhget_fields(self.DAG_PREFIX, dags)
+        for dag_id, dag_info in kv.items():
+            dag_info['id'] = dag_id
+            self.format_info(dag_info)
         return kv

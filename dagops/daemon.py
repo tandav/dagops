@@ -66,6 +66,7 @@ class AsyncWatcher:
                 # del self.logs_handlers[task_id]
                 # assert self.tasks[task_id] in self.task_to_dag[task_id].tasks
                 task = self.tasks[task_id]
+                task.status = status
                 del self.running_tasks[task_id]
                 del self.tasks[task_id]
                 dag = self.task_to_dag[task_id]
@@ -85,12 +86,16 @@ class AsyncWatcher:
                 dag_id = dag_to_dag_id[aio_dag]
                 dag = self.dags[dag_id]
                 status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
+                success_tasks = sum(1 for t in dag.tasks if t.status == TaskStatus.SUCCESS)
+                status = TaskStatus.SUCCESS if success_tasks == len(dag.tasks) else TaskStatus.FAILED
+
                 stopped_at = datetime.datetime.now()
                 await self.extraredis.hset_fields(
                     self.state.DAG_PREFIX, dag_id, {
                         'status': status,
                         'stopped_at': str(stopped_at),
                         'duration': (stopped_at - dag.started_at).seconds,
+                        'success_tasks': f'{success_tasks}/{len(dag.tasks)}',
                     },
                 )
                 del self.running_dags[dag_id]

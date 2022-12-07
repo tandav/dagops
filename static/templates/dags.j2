@@ -2,4 +2,28 @@
 {% block title %}dags{% endblock %}
 {% block content %}
 <h1>dags</h1>
+<table>
+<tr>
+<th>id</th>
+<th>status</th>
+<th>success_tasks</th>
+<th>created_at</th>
+<th>started_at</th>
+<th>stopped_at</th>
+<th>duration</th>
+</tr>
+<thead>
+</thead>
+{% for dag in dags %}
+    <tr>
+        <td><a href="/dags/{{ dag.id }}"><code>{{ dag.id|truncate(8, end='') }}</code></a></td>
+        <td><code>{{ dag.status }}</code></td>
+        <td><code>{{ dag.success_tasks }}</code></td>
+        <td><code>{{ dag.created_at|format_time if 'created_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ dag.started_at|format_time if 'started_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ dag.stopped_at|format_time if 'stopped_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ dag.duration }}</code> seconds</td>
+    </tr>
+{% endfor %}
+</table>
 {% endblock %}
