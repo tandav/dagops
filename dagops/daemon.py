@@ -38,7 +38,7 @@ class AsyncWatcher:
         await p.communicate()
         return p
 
-    async def process_handlers(self):
+    async def handle_tasks(self):
         while True:
             if not self.running_tasks:
                 await asyncio.sleep(1)
@@ -64,13 +64,15 @@ class AsyncWatcher:
                 )
                 # self.logs_handlers[task_id].close()
                 # del self.logs_handlers[task_id]
+                # assert self.tasks[task_id] in self.task_to_dag[task_id].tasks
+                task = self.tasks[task_id]
                 del self.running_tasks[task_id]
                 del self.tasks[task_id]
                 dag = self.task_to_dag[task_id]
-                await dag.done_queue.put(task_id)
+                await dag.done_queue.put(task)
             await asyncio.sleep(1)
 
-    async def dag_handlers(self):
+    async def handlers_dags(self):
         while True:
             if not self.running_dags:
                 await asyncio.sleep(1)
@@ -79,15 +81,16 @@ class AsyncWatcher:
             dag_to_dag_id = {t: k for k, t in self.running_dags.items()}
             done, running = await asyncio.wait(dag_to_dag_id, return_when=asyncio.FIRST_COMPLETED)
             for aio_dag in done:
-                d = aio_dag.result()
+                # d = aio_dag.result()
                 dag_id = dag_to_dag_id[aio_dag]
-                status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in d.tasks) else TaskStatus.FAILED
+                dag = self.dags[dag_id]
+                status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
                 stopped_at = datetime.datetime.now()
                 await self.extraredis.hset_fields(
                     self.state.DAG_PREFIX, dag_id, {
                         'status': status,
                         'stopped_at': str(stopped_at),
-                        'duration': (stopped_at - d.started_at).seconds,
+                        'duration': (stopped_at - dag.started_at).seconds,
                     },
                 )
                 del self.running_dags[dag_id]
@@ -124,15 +127,25 @@ class AsyncWatcher:
 
     async def start_task(self, task: Task):
         # task = self.tasks[task_id]
-        task.started_at = datetime.datetime.now()
+        now = datetime.datetime.now()
+        task.started_at = now
         await self.extraredis.hset_fields(
             self.state.TASK_PREFIX, task.id, {
                 'status': TaskStatus.RUNNING,
                 'command': json.dumps(task.command),
                 'env': json.dumps(task.env),
-                'started_at': str(task.started_at),
+                'started_at': str(now),
             },
         )
+        dag = self.task_to_dag[task.id]
+        dag.started_at = now
+        await self.extraredis.hset_fields(
+            self.state.DAG_PREFIX, dag.id, {
+                'status': TaskStatus.RUNNING,
+                'started_at': str(now),
+            },
+        )
+
         # await self.state.set_shell_task(task, TaskStatus.RUNNING)
         self.running_tasks[task.id] = asyncio.create_task(task.run())
 
@@ -197,9 +210,7 @@ class AsyncWatcher:
     async def update_files_dags(self) -> None:
         """create dags for new files"""
         while True:
-            files = await self.state.get_files()
-            files_dags = await self.state.files_dags(files)
-            # print('files_dags', files_dags)
+            files_dags = await self.state.files_dags()
             # to_update = {}
             for file, dag_id in files_dags.items():
                 if dag_id is None:
@@ -261,9 +272,8 @@ class AsyncWatcher:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
             tg.create_task(self.process_tasks())
-            tg.create_task(self.process_handlers())
-            tg.create_task(self.dag_handlers())
-            # tg.create_task(self.update_files_tasks())
+            tg.create_task(self.handle_tasks())
+            tg.create_task(self.handlers_dags())
             tg.create_task(self.update_files_dags())
 
 

@@ -10,13 +10,18 @@ class State:
         self.redis = self.extraredis.redis
         self.TASK_PREFIX = 'task'
         self.DAG_PREFIX = 'dags'
-        self.FILE_DAG_PREFIX = 'file_dag'
         self.FILE_SET = 'file_set'
+        self.UP_TO_DATE_FILE_SET = 'up_to_date_file_set'
+        self.DELETED_FILE_SET = 'deleted_file_set'
+        self.FILE_DAG_PREFIX = 'file_dag'
         self.TASK_SET = 'task_set'
         self.DAG_SET = 'dag_set'
 
     async def update_files(self, files: Iterable[str]) -> None:
         pipe = self.redis.pipeline()
+        pipe.delete(self.UP_TO_DATE_FILE_SET)
+        pipe.sadd(self.UP_TO_DATE_FILE_SET, *files)
+        pipe.sdiffstore(self.DELETED_FILE_SET, self.FILE_SET, self.UP_TO_DATE_FILE_SET)
         pipe.delete(self.FILE_SET)
         if files:
             pipe.sadd(self.FILE_SET, *files)
@@ -32,6 +37,11 @@ class State:
         await self.redis.sadd(self.FILE_SET, *files)
 
     async def files_dags(self, files: Iterable[str] | None = None) -> dict[str, str]:
+        # delete orphaned dags for deleted files
+        del_files = await self.redis.smembers(self.DELETED_FILE_SET)
+        if del_files:
+            del_files = await self.extraredis.maddprefix(self.FILE_DAG_PREFIX, del_files)
+            await self.extraredis.delete(*del_files)
         if files is None:
             files = await self.get_files()
         return await self.extraredis.mget(self.FILE_DAG_PREFIX, files)
@@ -69,78 +79,3 @@ class State:
             task_info['id'] = task_id
             self.format_task_info(task_info)
         return kv
-
-
-#     async def prefix_mget(self, prefix: bytes, keys: list[str] | None = None) -> dict[str, bytes]:
-#         if keys is None:
-#             keys = await self.redis.keys(prefix + b':*')
-#         values = await self.redis.mget(keys)
-#         keys = self.remove_table_prefix(keys)
-#         return dict(zip(keys, values))
-
-#     async def prefix_mhgetall(self, prefix: str, keys: list[str] | None = None) -> dict[str, bytes]:
-#         keys = await self.redis.keys(f'{prefix}:*')
-#         pipe = self.redis.pipeline()
-#         for key in keys:
-#             pipe.hgetall(key)
-#         values = await pipe.execute()
-#         keys = [k.decode() for k in keys]
-#         return dict(zip(keys, values))
-
-#     async def prefix_mhset(self, prefix: str, nv: dict[str, str], fields: list[str] | None = None):
-#         if not nv:
-#             return
-#         pipe = self.redis.pipeline()
-#         for (n, v), f in zip(nv.items(), fields):
-#             pipe.hset(f'{prefix}:{n}', f, v)
-#         await pipe.execute()
-
-#     async def prefix_mhget(self, prefix: str, fields: list[str], keys: list[str] | None = None) -> dict[str, bytes]:
-#         if keys is None:
-#             keys = await self.redis.keys(prefix + b':*')
-#         pipe = self.redis.pipeline()
-#         for f, k in zip(fields, keys):
-#             pipe.hget(k, f)
-#         values = await pipe.execute()
-#         print('************')
-#         print(keys)
-#         print(values)
-#         # keys = [k.decode() for k in keys]
-#         keys = self.remove_table_prefix(keys)
-#         return dict(zip(keys, values))
-
-#         for key in keys:
-#             pipe.hmget(key, fields)
-#         values = await pipe.execute()
-#         keys = [k.decode() for k in keys]
-#         keys = self.remove_table_prefix(keys)
-#         return dict(zip(keys, values))
-
-#     async def get_task_statuses(self, task_ids: list[str] | None = None) -> dict[str, bytes]:
-#         if task_ids is None:
-#             keys = await self.redis.keys(f'{self.prefix_tasks}:*')
-#         pipe = self.redis.pipeline()
-#         for key in keys:
-#             pipe.hget(key, 'status')
-#         statuses = await pipe.execute()
-#         keys = [k.decode() for k in keys]
-#         task_ids = self.remove_table_prefix(keys)
-#         return dict(zip(task_ids, statuses))
-#         # values = await self.redis.mget(keys)
-#         # return dict(zip(keys, values))
-
-#     async def set_task_status(self, task_id: str, status: str):
-#         await self.redis.hset(f'{self.prefix_tasks}:{task_id}', 'status', status)
-
-#     async def get_task_status(self, task_id: str) -> str:
-#         return await self.redis.hget(f'{self.prefix_tasks}:{task_id}', 'status')
-
-#     async def mset_task_status(self, statuses: dict[str, str]):
-#         if not statuses:
-#             return
-#         pipe = self.redis.pipeline()
-#         for task_id, status in statuses.items():
-#             pipe.hset(f'{self.prefix_tasks}:{task_id}', 'status', status)
-#         await pipe.execute()
-#         # statuses = {f'{self.prefix_tasks}:{k}': v for k, v in statuses.items()}
-#         # await self.redis.mset(statuses)

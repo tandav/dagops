@@ -20,7 +20,7 @@
 </thead>
 {% for task in tasks %}
     <tr>
-        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(10) }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
         <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
         <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.env|truncate(20) }}</code></a></td>
