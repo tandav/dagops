@@ -10,10 +10,11 @@
 <th>command</th>
 <th>env</th>
 <th>created_at</th>
+<th>updated_at</th>
 <th>started_at</th>
 <th>stopped_at</th>
-<th>duration</th>
-<th>returncode</th>
+<th>duration_seconds</th>
+{# <th>returncode</th> #}
 <th>logs</th>
 </tr>
 <thead>
@@ -24,11 +25,12 @@
         <td><code>{{ task.status }}</code></td>
         <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
         <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.env|truncate(20) }}</code></a></td>
-        <td><code>{{ task.created_at|format_time if 'created_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.started_at|format_time if 'started_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.stopped_at|format_time if 'stopped_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.duration }}</code> seconds</td>
-        <td><code>{{ task.returncode }}</code></td>
+        <td><code>{{ task.created_at|format_time if task.created_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.updated_at|format_time if task.updated_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.started_at|format_time if task.started_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.stopped_at|format_time if task.stopped_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.duration_seconds|round(1) if task.duration_seconds is not none else 'NULL' }}</code></td>
+        {# <td><code>{{ task.returncode }}</code></td> #}
         <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
     </tr>
 {% endfor %}

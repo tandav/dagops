@@ -196,9 +196,9 @@ def api_delete_dags(
     return db_objs
 
 
-# @app.get('/', response_class=HTMLResponse)
-# async def root():
-#     return RedirectResponse('/tasks/')
+@app.get('/', response_class=HTMLResponse)
+async def root():
+    return RedirectResponse('/tasks/')
 
 
 # @app.get('/logs/', response_class=HTMLResponse)
@@ -226,14 +226,17 @@ def api_delete_dags(
 #     return JSONResponse(json.loads(task['env']))
 
 
-# @app.get('/tasks/', response_class=HTMLResponse)
-# async def tasks(
-#     request: Request,
-#     db: Session = Depends(get_db),
-# ):
-#     tasks = await state.get_tasks_info()
-#     tasks = sorted(tasks.values(), key=lambda x: x['created_at'], reverse=True)
-#     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+@app.get('/tasks/', response_class=HTMLResponse)
+async def tasks(
+    request: Request,
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    tasks = task_crud.read_many(db, skip, limit)
+    tasks = [schemas.Task.from_orm(task) for task in tasks]
+    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
 
 
 # @app.get('/tasks/{task_id}', response_class=HTMLResponse)

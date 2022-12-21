@@ -2,9 +2,25 @@ import datetime
 
 from pydantic import BaseModel
 from pydantic import validator
+from pydantic import root_validator
 
 from dagops.task import TaskStatus
 
+
+
+
+# =============================================================================
+
+class WithDuration(BaseModel):
+    duration_seconds: float | None
+
+    @root_validator
+    def validate_duration(cls, values):
+        started_at = values.get('started_at')
+        stopped_at = values.get('stopped_at')
+        if started_at is not None and stopped_at is not None:
+            values['duration_seconds'] = (stopped_at - started_at).total_seconds()
+        return values
 
 # =============================================================================
 
@@ -14,7 +30,7 @@ class TaskCreate(BaseModel):
     env: dict[str, str]
 
 
-class Task(TaskCreate):
+class Task(TaskCreate, WithDuration):
     id: str
     dag_id: str | None
     created_at: datetime.datetime
@@ -22,6 +38,7 @@ class Task(TaskCreate):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus
+
 
     class Config:
         orm_mode = True
@@ -47,7 +64,7 @@ class DagCreate(BaseModel):
         return v
 
 
-class Dag(BaseModel):
+class Dag(WithDuration):
     id: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
