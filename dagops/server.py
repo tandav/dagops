@@ -125,9 +125,23 @@ def api_read_dags(
     db: Session = Depends(get_db),
 ):
     db_objects = dag_crud.read_many(db, skip, limit)
+    db_objects = [x.to_dict() for x in db_objects]
     return db_objects
-    # tasks = [schemas.Dag(**x.to_dict()) for x in crud.dag.read_many(db, skip, limit)]
-    # return tasks
+
+
+@app.get(
+    '/api/dags/{dag_id}',
+    response_model=schemas.Dag,
+)
+def api_read_dag(
+    dag_id: str,
+    db: Session = Depends(get_db),
+):
+    db_obj = dag_crud.read_by_id(db, dag_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+    db_obj = db_obj.to_dict()
+    return db_obj
 
 
 @app.post(
