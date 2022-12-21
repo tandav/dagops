@@ -15,8 +15,8 @@ class TaskCreate(BaseModel):
 
 
 class Task(TaskCreate):
-    id: int
-    dag_id: int | None
+    id: str
+    dag_id: str | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     started_at: datetime.datetime | None
@@ -48,11 +48,11 @@ class DagCreate(BaseModel):
 
 
 class Dag(BaseModel):
-    id: int
+    id: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    started_at: datetime.datetime
-    stopped_at: datetime.datetime
+    started_at: datetime.datetime | None
+    stopped_at: datetime.datetime | None
     status: TaskStatus
     graph: dict[str, list[str]]
     tasks: list[str]

@@ -57,7 +57,7 @@ def api_read_tasks(
     response_model=schemas.Task,
 )
 def api_read_task(
-    task_id: int,
+    task_id: str,
     db: Session = Depends(get_db),
 ):
     db_obj = task_crud.read_by_id(db, task_id)
@@ -82,7 +82,7 @@ def api_create_task(
     '/api/tasks/{task_id}',
 )
 def api_update_task(
-    task_id: int,
+    task_id: str,
     task: schemas.TaskUpdate,
     db: Session = Depends(get_db),
 ):
@@ -96,7 +96,7 @@ def api_update_task(
     '/api/tasks/{task_id}',
 )
 def api_delete_task(
-    task_id: int,
+    task_id: str,
     db: Session = Depends(get_db),
 ):
     db_obj = task_crud.delete_by_id(db, task_id)
@@ -128,6 +128,19 @@ def api_read_dags(
     return db_objects
     # tasks = [schemas.Dag(**x.to_dict()) for x in crud.dag.read_many(db, skip, limit)]
     # return tasks
+
+
+@app.post(
+    '/api/dags/',
+    response_model=schemas.Dag,
+)
+def api_create_dag(
+    dag: schemas.DagCreate,
+    db: Session = Depends(get_db),
+):
+    db_obj = dag_crud.create(db, dag)
+    db_obj = db_obj.to_dict()
+    return db_obj
 
 
 # @app.get('/', response_class=HTMLResponse)

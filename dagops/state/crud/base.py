@@ -27,12 +27,9 @@ class CRUD:
         db: Session,
         field: str,
         values: list[str],
-        skip: int = 0,
-        limit: int = 100,
     ) -> list[Base]:
         query = db.query(self.model)
         query = query.filter(getattr(self.model, field).in_(values))
-        query = query.offset(skip).limit(limit)
         return query.all()
 
     def read_by_field(

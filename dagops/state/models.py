@@ -3,12 +3,16 @@ from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
-from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
+import uuid
 from dagops.task import TaskStatus
+
+
+def uuid_gen():
+    return str(uuid.uuid4())
+
 
 Base = declarative_base()
 
@@ -16,17 +20,17 @@ Base = declarative_base()
 class File(Base):
     __tablename__ = 'file'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String, primary_key=True, default=uuid_gen)
     path = Column(String, nullable=False)
-    dag_id = Column(Integer, ForeignKey('dag.id'), nullable=True)
+    dag_id = Column(String, ForeignKey('dag.id'), nullable=True)
     dag = relationship('Dag')
 
 
 class Task(Base):
     __tablename__ = 'task'
 
-    id = Column(Integer, primary_key=True)
-    dag_id = Column(Integer, ForeignKey('dag.id'))
+    id = Column(String, primary_key=True, default=uuid_gen)
+    dag_id = Column(String, ForeignKey('dag.id'), nullable=True)
     dag = relationship('Dag', back_populates='tasks')
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
@@ -53,7 +57,7 @@ class Task(Base):
 class Dag(Base):
     __tablename__ = 'dag'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String, primary_key=True, default=uuid_gen)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
     started_at = Column(DateTime, nullable=True)

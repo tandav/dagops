@@ -16,13 +16,17 @@ class DagCRUD(CRUD):
         dag: DagCreate,
     ) -> models.Dag:
 
-        tasks = task_crud.read_by_field(db, "dag_id", dag.id)
+        tasks = dag.graph.keys()
+        tasks = task_crud.read_many_isin(db, "id", tasks)
 
-        if set(task.id for task in tasks) != dag['graph'].keys():
+        if set(task.id for task in tasks) != dag.graph.keys():
             raise ValueError("Tasks in graph do not match tasks in database")
 
         if any(task.status != TaskStatus.PENDING for task in tasks):
             raise ValueError("Tasks in graph are not all pending")
+
+        if any(task.dag_id != None for task in tasks):
+            raise ValueError("Tasks in graph must all have dag_id=None")
 
         db_dag = models.Dag(
             **dag.dict(),
@@ -34,6 +38,11 @@ class DagCRUD(CRUD):
         db.add(db_dag)
         db.commit()
         db.refresh(db_dag)
+
+        for task in tasks:
+            task.dag_id = db_dag.id
+        db.commit()
+
         return db_dag
 
 dag_crud = DagCRUD(models.Dag)
