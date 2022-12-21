@@ -9,20 +9,8 @@ from dagops.task import TaskStatus
 
 
 class TaskCRUD(CRUD):
-
-    # def read_by_id(db: Session, id: int) -> models.Task:
-    #     return db.query(models.Task).filter(models.Task.id == id).first()
-
-    # def read_many(
-    #     db: Session,
-    #     skip: int = 0,
-    #     limit: int = 100,
-    # ) -> list[models.Task]:
-    #     query = db.query(models.Task)
-    #     query = query.offset(skip).limit(limit)
-    #     return query.all()
-
     def create(
+        self,
         db: Session,
         task: TaskCreate,
     ) -> models.Task:

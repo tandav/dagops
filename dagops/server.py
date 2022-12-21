@@ -48,8 +48,6 @@ def api_read_tasks(
     db: Session = Depends(get_db),
 ):
     db_notes = task_crud.read_many(db, skip, limit)
-    db_notes = [db_note.to_dict() for db_note in db_notes]
-    print(db_notes[0])
     return db_notes
 
 
@@ -64,8 +62,6 @@ def api_read_task(
     db_note = task_crud.read_by_id(db, task_id)
     if db_note is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
-
-    db_note = db_note.to_dict()
     return db_note
 
 
@@ -78,7 +74,6 @@ def api_create_task(
     db: Session = Depends(get_db),
 ):
     db_note = task_crud.create(db, task)
-    # return db_note.to_dict()
     return db_note
 
 

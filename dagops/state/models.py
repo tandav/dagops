@@ -61,15 +61,15 @@ class Task(Base):
     command = Column(JSON, nullable=False)
     env = Column(JSON, nullable=False)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'dag_id': self.dag_id,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'started_at': self.started_at,
-            'stopped_at': self.stopped_at,
-            'status': self.status,
-            'command': self.command,
-            'env': self.env,
-        }
+    # def to_dict(self):
+    #     return {
+    #         'id': self.id,
+    #         'dag_id': self.dag_id,
+    #         'created_at': self.created_at,
+    #         'updated_at': self.updated_at,
+    #         'started_at': self.started_at,
+    #         'stopped_at': self.stopped_at,
+    #         'status': self.status,
+    #         'command': self.command,
+    #         'env': self.env,
+    #     }
