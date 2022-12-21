@@ -157,6 +157,45 @@ def api_create_dag(
     return db_obj
 
 
+@app.patch(
+    '/api/dags/{dag_id}',
+)
+def api_update_dag(
+    dag_id: str,
+    dag: schemas.DagUpdate,
+    db: Session = Depends(get_db),
+):
+    db_obj = dag_crud.update_by_id(db, dag_id, dag)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+    db_obj = db_obj.to_dict()
+    return db_obj
+
+
+@app.delete(
+    '/api/dags/{dag_id}',
+)
+def api_delete_dag(
+    dag_id: str,
+    db: Session = Depends(get_db),
+):
+    db_obj = dag_crud.delete_by_id(db, dag_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+    db_obj = db_obj.to_dict()
+    return db_obj
+
+
+@app.delete(
+    '/api/dags/',
+)
+def api_delete_dags(
+    db: Session = Depends(get_db),
+):
+    db_objs = dag_crud.delete_all(db)
+    return db_objs
+
+
 # @app.get('/', response_class=HTMLResponse)
 # async def root():
 #     return RedirectResponse('/tasks/')

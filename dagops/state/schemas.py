@@ -59,3 +59,9 @@ class Dag(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class DagUpdate(BaseModel):
+    started_at: datetime.datetime | None
+    stopped_at: datetime.datetime | None
+    status: TaskStatus | None
