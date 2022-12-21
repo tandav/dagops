@@ -6,6 +6,9 @@ from pydantic import Json
 from dagops.task import TaskStatus
 
 
+# =============================================================================
+
+
 class TaskCreate(BaseModel):
     dag_id: int
     command: list[str]
@@ -22,6 +25,15 @@ class Task(TaskCreate):
 
     class Config:
         orm_mode = True
+
+
+class TaskUpdate(BaseModel):
+    started_at: datetime.datetime | None
+    stopped_at: datetime.datetime | None
+    status: TaskStatus | None
+
+
+# =============================================================================
 
 
 class Dag(BaseModel):

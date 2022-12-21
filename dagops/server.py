@@ -77,6 +77,18 @@ def api_create_task(
     return db_note
 
 
+@app.patch(
+    '/api/tasks/{task_id}',
+)
+def api_update_task(
+    task_id: int,
+    task: schemas.TaskUpdate,
+    db: Session = Depends(get_db),
+):
+    db_note = task_crud.update_by_id(db, task_id, task)
+    if db_note is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
+    return db_note
 
 
 # @app.get(

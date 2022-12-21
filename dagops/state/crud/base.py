@@ -41,7 +41,9 @@ class CRUD:
 
     def update_by_id(self, db: Session, id: int, obj: Base) -> Base:
         db_obj = self.read_by_id(db, id)
-        for key, value in obj.dict().items():
+        if db_obj is None:
+            return None
+        for key, value in obj.dict(exclude_unset=True).items():
             setattr(db_obj, key, value)
         db.add(db_obj)
         db.commit()
