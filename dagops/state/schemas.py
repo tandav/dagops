@@ -1,7 +1,7 @@
 import datetime
 
 from pydantic import BaseModel
-from pydantic import Json
+from pydantic import validator
 
 from dagops.task import TaskStatus
 
@@ -10,13 +10,13 @@ from dagops.task import TaskStatus
 
 
 class TaskCreate(BaseModel):
-    dag_id: int
     command: list[str]
     env: dict[str, str]
 
 
 class Task(TaskCreate):
     id: int
+    dag_id: int | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     started_at: datetime.datetime | None
@@ -34,6 +34,17 @@ class TaskUpdate(BaseModel):
 
 
 # =============================================================================
+
+class DagCreate(BaseModel):
+    graph: dict[str, list[str]]
+
+    @validator('graph')
+    def validate_graph(cls, v):
+        for node, childs in v.items():
+            for child in childs:
+                if child not in v:
+                    raise ValueError(f'child={child} of node={node } not in graph')
+        return v
 
 
 class Dag(BaseModel):

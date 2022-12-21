@@ -22,31 +22,6 @@ class File(Base):
     dag = relationship('Dag')
 
 
-class Dag(Base):
-    __tablename__ = 'dag'
-
-    id = Column(Integer, primary_key=True)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
-    started_at = Column(DateTime, nullable=True)
-    stopped_at = Column(DateTime, nullable=True)
-    status = Column(Enum(TaskStatus), nullable=False)
-    graph = Column(JSON, nullable=False)
-    tasks = relationship('Task', back_populates='dag')
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'started_at': self.started_at,
-            'stopped_at': self.stopped_at,
-            'status': self.status,
-            'graph': self.graph,
-            'tasks': [task.id for task in self.tasks],
-        }
-
-
 class Task(Base):
     __tablename__ = 'task'
 
@@ -73,3 +48,28 @@ class Task(Base):
     #         'command': self.command,
     #         'env': self.env,
     #     }
+
+
+class Dag(Base):
+    __tablename__ = 'dag'
+
+    id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    stopped_at = Column(DateTime, nullable=True)
+    status = Column(Enum(TaskStatus), nullable=False)
+    graph = Column(JSON, nullable=False)
+    tasks = relationship('Task', back_populates='dag')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'started_at': self.started_at,
+            'stopped_at': self.stopped_at,
+            'status': self.status,
+            'graph': self.graph,
+            'tasks': [task.id for task in self.tasks],
+        }

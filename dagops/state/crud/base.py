@@ -22,6 +22,19 @@ class CRUD:
         query = query.offset(skip).limit(limit)
         return query.all()
 
+    def read_many_isin(
+        self,
+        db: Session,
+        field: str,
+        values: list[str],
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Base]:
+        query = db.query(self.model)
+        query = query.filter(getattr(self.model, field).in_(values))
+        query = query.offset(skip).limit(limit)
+        return query.all()
+
     def read_by_field(
         self,
         db: Session,
@@ -49,3 +62,20 @@ class CRUD:
         db.commit()
         db.refresh(db_obj)
         return db_obj
+
+    def delete_by_id(self, db: Session, id: int) -> Base:
+        db_obj = self.read_by_id(db, id)
+        if db_obj is None:
+            return None
+        db.delete(db_obj)
+        db.commit()
+        return db_obj
+
+    def delete_all(
+        self,
+        db: Session,
+    ) -> list[Base]:
+        query = db.query(self.model)
+        query.delete()
+        db.commit()
+        return query.all()

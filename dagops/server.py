@@ -19,6 +19,7 @@ from dagops.dependencies import get_db
 from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.task import task_crud
+from dagops.state.crud.dag import dag_crud
 
 dotenv.load_dotenv()
 
@@ -47,8 +48,8 @@ def api_read_tasks(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_notes = task_crud.read_many(db, skip, limit)
-    return db_notes
+    db_objects = task_crud.read_many(db, skip, limit)
+    return db_objects
 
 
 @app.get(
@@ -59,10 +60,10 @@ def api_read_task(
     task_id: int,
     db: Session = Depends(get_db),
 ):
-    db_note = task_crud.read_by_id(db, task_id)
-    if db_note is None:
+    db_obj = task_crud.read_by_id(db, task_id)
+    if db_obj is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
-    return db_note
+    return db_obj
 
 
 @app.post(
@@ -73,8 +74,8 @@ def api_create_task(
     task: schemas.TaskCreate,
     db: Session = Depends(get_db),
 ):
-    db_note = task_crud.create(db, task)
-    return db_note
+    db_obj = task_crud.create(db, task)
+    return db_obj
 
 
 @app.patch(
@@ -85,23 +86,48 @@ def api_update_task(
     task: schemas.TaskUpdate,
     db: Session = Depends(get_db),
 ):
-    db_note = task_crud.update_by_id(db, task_id, task)
-    if db_note is None:
+    db_obj = task_crud.update_by_id(db, task_id, task)
+    if db_obj is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
-    return db_note
+    return db_obj
 
 
-# @app.get(
-#     '/api/dags/',
-#     response_model=list[schemas.Dag],
-# )
-# def api_read_dags(
-#     db: Session = Depends(get_db),
-#     skip: int = 0,
-#     limit: int = 100,
-# ):
-#     tasks = [schemas.Dag(**x.to_dict()) for x in crud.dag.read_many(db, skip, limit)]
-#     return tasks
+@app.delete(
+    '/api/tasks/{task_id}',
+)
+def api_delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+):
+    db_obj = task_crud.delete_by_id(db, task_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
+    return db_obj
+
+
+@app.delete(
+    '/api/tasks/',
+)
+def api_delete_tasks(
+    db: Session = Depends(get_db),
+):
+    db_objs = task_crud.delete_all(db)
+    return db_objs
+
+
+@app.get(
+    '/api/dags/',
+    response_model=list[schemas.Dag],
+)
+def api_read_dags(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = dag_crud.read_many(db, skip, limit)
+    return db_objects
+    # tasks = [schemas.Dag(**x.to_dict()) for x in crud.dag.read_many(db, skip, limit)]
+    # return tasks
 
 
 # @app.get('/', response_class=HTMLResponse)
