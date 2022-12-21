@@ -18,6 +18,8 @@ class File(Base):
 
     id = Column(Integer, primary_key=True)
     path = Column(String, nullable=False)
+    dag_id = Column(Integer, ForeignKey('dag.id'), nullable=True)
+    dag = relationship('Dag')
 
 
 class Dag(Base):
@@ -31,6 +33,18 @@ class Dag(Base):
     status = Column(Enum(TaskStatus), nullable=False)
     graph = Column(JSON, nullable=False)
     tasks = relationship('Task', back_populates='dag')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'started_at': self.started_at,
+            'stopped_at': self.stopped_at,
+            'status': self.status,
+            'graph': self.graph,
+            'tasks': [task.id for task in self.tasks],
+        }
 
 
 class Task(Base):
@@ -46,3 +60,16 @@ class Task(Base):
     status = Column(Enum(TaskStatus), nullable=False)
     command = Column(JSON, nullable=False)
     env = Column(JSON, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'dag_id': self.dag_id,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'started_at': self.started_at,
+            'stopped_at': self.stopped_at,
+            'status': self.status,
+            'command': self.command,
+            'env': self.env,
+        }
