@@ -108,7 +108,7 @@ def api_delete_task(
 @app.delete(
     '/api/tasks/',
 )
-def api_delete_tasks(
+def api_delete_all_tasks(
     db: Session = Depends(get_db),
 ):
     db_objs = task_crud.delete_all(db)
@@ -189,7 +189,7 @@ def api_delete_dag(
 @app.delete(
     '/api/dags/',
 )
-def api_delete_dags(
+def api_delete_all_dags(
     db: Session = Depends(get_db),
 ):
     db_objs = dag_crud.delete_all(db)
@@ -239,14 +239,19 @@ async def tasks(
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
 
 
-# @app.get('/tasks/{task_id}', response_class=HTMLResponse)
-# async def task(request: Request, task_id: str):
-#     task = await state.get_task_info(task_id)
-#     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
+@app.get('/tasks/{task_id}', response_class=HTMLResponse)
+async def read_task(
+    task_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    task = task_crud.read_by_id(db, task_id)
+    task = schemas.Task.from_orm(task)
+    return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 
 @app.get('/dags/', response_class=HTMLResponse)
-async def dags(
+async def read_dags(
     request: Request,
     db: Session = Depends(get_db),
     skip: int = 0,
