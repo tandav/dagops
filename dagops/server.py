@@ -263,7 +263,12 @@ async def read_dags(
     return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
 
 
-# @app.get('/dags/{dag_id}', response_class=HTMLResponse)
-# async def dag(request: Request):
-#     dag = {}
-#     return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag})
+@app.get('/dags/{dag_id}', response_class=HTMLResponse)
+async def dag(
+    dag_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    dag = dag_crud.read_by_id(db, dag_id).to_dict()
+    dag = schemas.Dag(**dag)
+    return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag})
