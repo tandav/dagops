@@ -245,12 +245,17 @@ async def tasks(
 #     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 
-# @app.get('/dags/', response_class=HTMLResponse)
-# async def dags(request: Request):
-#     dags = await state.get_dags_info()
-#     dags = sorted(dags.values(), key=lambda x: x['created_at'], reverse=True)
-#     print(dags)
-#     return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
+@app.get('/dags/', response_class=HTMLResponse)
+async def dags(
+    request: Request,
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    dags = dag_crud.read_many(db, skip, limit)
+    dags = [schemas.Dag(**dag.to_dict()) for dag in dags]
+    dags = sorted(dags, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
 
 
 # @app.get('/dags/{dag_id}', response_class=HTMLResponse)
