@@ -271,4 +271,7 @@ async def dag(
 ):
     dag = dag_crud.read_by_id(db, dag_id).to_dict()
     dag = schemas.Dag(**dag)
-    return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag})
+    tasks = task_crud.read_many_isin(db, 'id', dag.tasks)
+    tasks = [schemas.Task.from_orm(task) for task in tasks]
+    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag, 'tasks': tasks})
