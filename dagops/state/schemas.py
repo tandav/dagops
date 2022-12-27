@@ -1,15 +1,13 @@
 import datetime
 
 from pydantic import BaseModel
-from pydantic import validator
 from pydantic import root_validator
+from pydantic import validator
 
 from dagops.task import TaskStatus
 
-
-
-
 # =============================================================================
+
 
 class WithDuration(BaseModel):
     duration_seconds: float | None
@@ -38,7 +36,6 @@ class Task(TaskCreate, WithDuration):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus
-
 
     class Config:
         orm_mode = True
@@ -82,3 +79,18 @@ class DagUpdate(BaseModel):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus | None
+
+
+# =============================================================================
+
+
+class FileCreate(BaseModel):
+    path: str
+
+
+class File(FileCreate):
+    id: str
+    dag_id: str | None
+
+    class Config:
+        orm_mode = True

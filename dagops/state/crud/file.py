@@ -1,22 +1,27 @@
 from sqlalchemy.orm import Session
 
 from dagops.state import models
-from dagops.state.schemas import TaskCreate
-from dagops.task import TaskStatus
+from dagops.state.crud.base import CRUD
 
 
-def read_by_id(db: Session, id: int) -> models.File:
-    return db.query(models.File).filter(models.File.id == id).first()
+class FileCRUD(CRUD):
+    pass
 
 
-def read_many(
-    db: Session,
-    skip: int = 0,
-    limit: int = 100,
-) -> list[models.File]:
-    query = db.query(models.File)
-    query = query.offset(skip).limit(limit)
-    return query.all()
+file_crud = FileCRUD(models.File)
+
+# def read_by_id(db: Session, id: int) -> models.File:
+#     return db.query(models.File).filter(models.File.id == id).first()
+
+
+# def read_many(
+#     db: Session,
+#     skip: int = 0,
+#     limit: int = 100,
+# ) -> list[models.File]:
+#     query = db.query(models.File)
+#     query = query.offset(skip).limit(limit)
+#     return query.all()
 
 
 # def create(

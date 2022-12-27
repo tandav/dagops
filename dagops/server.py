@@ -18,8 +18,9 @@ from dagops import util
 from dagops.dependencies import get_db
 from dagops.dependencies import get_db_cm
 from dagops.state import schemas
-from dagops.state.crud.task import task_crud
 from dagops.state.crud.dag import dag_crud
+from dagops.state.crud.file import file_crud
+from dagops.state.crud.task import task_crud
 
 dotenv.load_dotenv()
 
@@ -37,6 +38,17 @@ app = FastAPI()
 app.mount('/static/', StaticFiles(directory=static_folder), name='static')
 templates = Jinja2Templates(directory=static_folder / 'templates')
 templates.env.filters['format_time'] = util.format_time
+
+
+# =============================================================================
+
+
+@app.get('/', response_class=HTMLResponse)
+async def root():
+    return RedirectResponse('/tasks/')
+
+
+# =============================================================================
 
 
 @app.get(
@@ -113,6 +125,35 @@ def api_delete_all_tasks(
 ):
     db_objs = task_crud.delete_all(db)
     return db_objs
+
+
+# ------------------------------------------------------------------------------
+
+
+@app.get('/tasks/', response_class=HTMLResponse)
+async def tasks(
+    request: Request,
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+):
+    tasks = task_crud.read_many(db, skip, limit)
+    tasks = [schemas.Task.from_orm(task) for task in tasks]
+    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+
+
+@app.get('/tasks/{task_id}', response_class=HTMLResponse)
+async def read_task(
+    task_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    task = task_crud.read_by_id(db, task_id)
+    task = schemas.Task.from_orm(task)
+    return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
+
+# =============================================================================
 
 
 @app.get(
@@ -195,59 +236,7 @@ def api_delete_all_dags(
     db_objs = dag_crud.delete_all(db)
     return db_objs
 
-
-@app.get('/', response_class=HTMLResponse)
-async def root():
-    return RedirectResponse('/tasks/')
-
-
-# @app.get('/logs/', response_class=HTMLResponse)
-# async def logs(request: Request):
-#     logs = await util.dirstat(static_folder / 'logs')
-#     for log in logs:
-#         log['log_id'] = Path(log['name']).stem
-#     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
-
-
-# @app.get('/logs/{task_id}.txt', response_class=FileResponse)
-# async def log(task_id: str, request: Request):
-#     return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
-
-
-# @app.get('/tasks/{task_id}/command.json', response_class=JSONResponse)
-# async def task_command(task_id: str):
-#     task = await state.get_task_info(task_id)
-#     return JSONResponse(json.loads(task['command']))
-
-
-# @app.get('/tasks/{task_id}/env.json', response_class=JSONResponse)
-# async def task_env(task_id: str):
-#     task = await state.get_task_info(task_id)
-#     return JSONResponse(json.loads(task['env']))
-
-
-@app.get('/tasks/', response_class=HTMLResponse)
-async def tasks(
-    request: Request,
-    db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
-):
-    tasks = task_crud.read_many(db, skip, limit)
-    tasks = [schemas.Task.from_orm(task) for task in tasks]
-    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
-
-
-@app.get('/tasks/{task_id}', response_class=HTMLResponse)
-async def read_task(
-    task_id: str,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    task = task_crud.read_by_id(db, task_id)
-    task = schemas.Task.from_orm(task)
-    return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
+# ------------------------------------------------------------------------------
 
 
 @app.get('/dags/', response_class=HTMLResponse)
@@ -275,3 +264,76 @@ async def dag(
     tasks = [schemas.Task.from_orm(task) for task in tasks]
     tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
     return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag, 'tasks': tasks})
+
+
+# =============================================================================
+
+
+@app.get(
+    '/api/files/',
+    response_model=list[schemas.File],
+)
+def api_read_files(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = file_crud.read_many(db, skip, limit)
+    return db_objects
+
+
+@app.post(
+    '/api/files/',
+    response_model=schemas.File,
+)
+def api_create_file(
+    file: schemas.FileCreate,
+    db: Session = Depends(get_db),
+):
+    db_obj = file_crud.create(db, file)
+    return db_obj
+
+
+# ------------------------------------------------------------------------------
+
+
+@app.get(
+    '/files/',
+    response_class=HTMLResponse,
+)
+def read_files(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = file_crud.read_many(db, skip, limit)
+    return templates.TemplateResponse('files.j2', {'request': request, 'files': db_objects})
+
+
+# =============================================================================
+
+
+# @app.get('/logs/', response_class=HTMLResponse)
+# async def logs(request: Request):
+#     logs = await util.dirstat(static_folder / 'logs')
+#     for log in logs:
+#         log['log_id'] = Path(log['name']).stem
+#     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
+
+
+# @app.get('/logs/{task_id}.txt', response_class=FileResponse)
+# async def log(task_id: str, request: Request):
+#     return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
+
+
+# @app.get('/tasks/{task_id}/command.json', response_class=JSONResponse)
+# async def task_command(task_id: str):
+#     task = await state.get_task_info(task_id)
+#     return JSONResponse(json.loads(task['command']))
+
+
+# @app.get('/tasks/{task_id}/env.json', response_class=JSONResponse)
+# async def task_env(task_id: str):
+#     task = await state.get_task_info(task_id)
+#     return JSONResponse(json.loads(task['env']))
