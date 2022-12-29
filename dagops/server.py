@@ -311,6 +311,19 @@ def read_files(
     return templates.TemplateResponse('files.j2', {'request': request, 'files': db_objects})
 
 
+@app.get(
+    '/files/{file_id}',
+    response_class=HTMLResponse,
+)
+def read_file(
+    file_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    db_obj = file_crud.read_by_id(db, file_id)
+    return templates.TemplateResponse('file.j2', {'request': request, 'file': db_obj})
+
+
 # =============================================================================
 
 
