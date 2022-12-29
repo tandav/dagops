@@ -2,22 +2,27 @@ import asyncio
 import datetime
 import json
 import sys
+from fastapi import Depends
 
 import aiofiles.os
 import dotenv
 from extraredis._async import ExtraRedisAsync
 
 from dagops.dag import Dag
-from dagops.state import State
+# from dagops.state import State
+from dagops.dependencies import get_db_cm
 from dagops.task import ShellTask
 from dagops.task import Task
 from dagops.task import TaskStatus
+from dagops.state.crud.file import file_crud
+from dagops.state import schemas
+
 
 dotenv.load_dotenv()
 
 
 class AsyncWatcher:
-    def __init__(self, watch_path: str):
+    def __init__(self, watch_path: str, db):
         self.watch_path = watch_path
         self.pending_queue = asyncio.Queue(maxsize=10)
         self.tasks = {}  # task_id: Task
@@ -26,7 +31,8 @@ class AsyncWatcher:
         self.running_dags = {}
         self.task_to_dag = {}
         self.extraredis = ExtraRedisAsync(decode_responses=True)
-        self.state = State(self.extraredis)
+        # self.state = State(self.extraredis)
+        self.db = db
 
     async def run_subprocess(self, cmd, env, logs_fh):
         p = await asyncio.create_subprocess_exec(
@@ -244,8 +250,15 @@ class AsyncWatcher:
     async def watch_directory(self):
         while True:
             files = set(await aiofiles.os.listdir(self.watch_path))
-            await self.state.update_files(files)
-            # await self.update_files_tasks()
+            stale_files_ids = set()
+            up_to_date_files_paths = set()
+            for file in file_crud.read_many(self.db):
+                if file.path not in files:
+                    stale_files_ids.add(file.id)
+                else:
+                    up_to_date_files_paths.add(file.path)
+            file_crud.delete_many_by_ids(self.db, stale_files_ids)
+            file_crud.create_many(self.db, [schemas.FileCreate(path=file) for file in files - up_to_date_files_paths])
             await asyncio.sleep(1)
 
     async def cancel_orphaned_tasks(self):
@@ -276,12 +289,16 @@ class AsyncWatcher:
     async def main(self):
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
-            tg.create_task(self.process_tasks())
-            tg.create_task(self.handle_tasks())
-            tg.create_task(self.handlers_dags())
-            tg.create_task(self.update_files_dags())
+            # tg.create_task(self.process_tasks())
+            # tg.create_task(self.handle_tasks())
+            # tg.create_task(self.handlers_dags())
+            # tg.create_task(self.update_files_dags())
 
 
 if __name__ == '__main__':
-    # asyncio.run(main())
-    asyncio.run(AsyncWatcher('static/records_tmp').main())
+    with get_db_cm() as db:
+        watch_path = 'static/records_tmp'
+        asyncio.run(AsyncWatcher(
+            watch_path,
+            db=db,
+        ).main())

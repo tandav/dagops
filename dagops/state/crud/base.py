@@ -76,6 +76,13 @@ class CRUD:
         db.commit()
         return db_obj
 
+    def delete_many_by_ids(self, db: Session, ids: list[int]) -> list[Base]:
+        query = db.query(self.model)
+        query = query.filter(self.model.id.in_(ids))
+        query.delete(synchronize_session=False)
+        db.commit()
+        return query.all()
+
     def delete_all(
         self,
         db: Session,
