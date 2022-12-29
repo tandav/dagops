@@ -49,6 +49,14 @@ class CRUD:
         db.refresh(db_obj)
         return db_obj
 
+    def create_many(self, db: Session, objs: list[Base]) -> list[Base]:
+        db_objs = [self.model(**obj.dict()) for obj in objs]
+        db.add_all(db_objs)
+        db.commit()
+        for db_obj in db_objs:
+            db.refresh(db_obj)
+        return db_objs
+
     def update_by_id(self, db: Session, id: int, obj: Base) -> Base:
         db_obj = self.read_by_id(db, id)
         if db_obj is None:

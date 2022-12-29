@@ -296,6 +296,17 @@ def api_create_file(
     db_obj = file_crud.create(db, file)
     return db_obj
 
+@app.post(
+    '/api/files/many',
+    response_model=list[schemas.File],
+)
+def api_create_files(
+    files: list[schemas.FileCreate],
+    db: Session = Depends(get_db),
+):
+    db_objs = file_crud.create_many(db, files)
+    return db_objs
+
 
 @app.patch(
     '/api/files/{file_id}',
