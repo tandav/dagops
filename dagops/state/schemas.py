@@ -88,9 +88,12 @@ class FileCreate(BaseModel):
     path: str
 
 
-class File(FileCreate):
-    id: str
+class FileUpdate(BaseModel):
     dag_id: str | None
+
+
+class File(FileCreate, FileUpdate):
+    id: str
 
     class Config:
         orm_mode = True

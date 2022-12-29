@@ -258,7 +258,10 @@ async def dag(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    dag = dag_crud.read_by_id(db, dag_id).to_dict()
+    dag = dag_crud.read_by_id(db, dag_id)
+    if dag is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+    dag = dag.to_dict()
     dag = schemas.Dag(**dag)
     tasks = task_crud.read_many_isin(db, 'id', dag.tasks)
     tasks = [schemas.Task.from_orm(task) for task in tasks]
@@ -292,6 +295,43 @@ def api_create_file(
 ):
     db_obj = file_crud.create(db, file)
     return db_obj
+
+
+@app.patch(
+    '/api/files/{file_id}',
+)
+def api_update_file(
+    file_id: str,
+    file: schemas.FileUpdate,
+    db: Session = Depends(get_db),
+):
+    db_obj = file_crud.update_by_id(db, file_id, file)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='file not found')
+    return db_obj
+
+
+@app.delete(
+    '/api/files/{file_id}',
+)
+def api_delete_file(
+    file_id: str,
+    db: Session = Depends(get_db),
+):
+    db_obj = file_crud.delete_by_id(db, file_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='file not found')
+    return db_obj
+
+
+@app.delete(
+    '/api/files/',
+)
+def api_delete_all_files(
+    db: Session = Depends(get_db),
+):
+    db_objs = file_crud.delete_all(db)
+    return db_objs
 
 
 # ------------------------------------------------------------------------------
