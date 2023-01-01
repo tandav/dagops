@@ -19,9 +19,9 @@
         <td><a href="/dags/{{ dag.id }}"><code>{{ dag.id|truncate(8, end='') }}</code></a></td>
         <td><code>{{ dag.status }}</code></td>
         <td><code>{{ dag.success_tasks }}</code></td>
-        <td><code>{{ dag.created_at|format_time if 'created_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ dag.started_at|format_time if 'started_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ dag.stopped_at|format_time if 'stopped_at' in task else 'NONE'}}</code></td>
+        <td><code>{{ dag.created_at|format_time if dag.created_at is not none else 'NONE'}}</code></td>
+        <td><code>{{ dag.started_at|format_time if dag.started_at is not none else 'NONE'}}</code></td>
+        <td><code>{{ dag.stopped_at|format_time if dag.stopped_at is not none else 'NONE'}}</code></td>
         <td><code>{{ dag.duration }}</code> seconds</td>
     </tr>
 {% endfor %}
