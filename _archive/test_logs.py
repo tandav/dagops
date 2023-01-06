@@ -4,7 +4,7 @@ import time
 
 from dagops.manager import TaskManager
 from dagops.task import ShellTask
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 
 def main():

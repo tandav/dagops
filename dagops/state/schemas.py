@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from pydantic import root_validator
 from pydantic import validator
 
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 # =============================================================================
 

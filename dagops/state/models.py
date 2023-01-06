@@ -7,7 +7,7 @@ from sqlalchemy import String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 
 def uuid_gen():

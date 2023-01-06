@@ -1,20 +1,11 @@
 import abc
 import asyncio
-import uuid
-import enum
-
-class TaskStatus(enum.Enum):
-# class TaskStatus:
-    PENDING = 'PENDING'
-    RUNNING = 'RUNNING'
-    SUCCESS = 'SUCCESS'
-    FAILED = 'FAILED'
-    CANCELED = 'CANCELED'
+from dagops.state import schemas
+from dagops.state.crud.task import task_crud
+from sqlalchemy.orm import Session
 
 
 class Task:
-    def __init__(self):
-        self.id = str(uuid.uuid4())
 
     @abc.abstractmethod
     async def run(self):
@@ -31,15 +22,23 @@ class Task:
 
 
 class ShellTask(Task):
-    def __init__(self, command: list[str], env: dict[str, str] | None = None):
+    def __init__(
+        self,
+        db: Session,
+        command: list[str],
+        env: dict[str, str] | None = None,
+    ):
         super().__init__()
+        self.db = db
         self.command = command
         self.env = env or {}
-        self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
         self.status = None
+        self.db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
+        self.id = self.db_task.id
+        self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
 
     async def run(self):
         p = await asyncio.create_subprocess_exec(

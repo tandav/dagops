@@ -1,18 +1,21 @@
 import asyncio
 import graphlib
 import uuid
-
+from dagops.state import schemas
+from dagops.state.crud.dag import dag_crud
 from dagops.task import Task
+from sqlalchemy.orm import Session
 
 
 class Dag:
     def __init__(
         self,
+        db: Session,
         graph: dict[Task, set[Task]],
         pending_queue: asyncio.Queue[Task],
         done_queue: asyncio.Queue[Task],
     ) -> None:
-        self.id = str(uuid.uuid4())
+        self.db = db
         self.tasks, self.id_graph = self.extract_tasks_and_id_graph(graph)
         self.graph = graphlib.TopologicalSorter(graph)
         self.graph.prepare()
@@ -21,6 +24,8 @@ class Dag:
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
+        self.db_dag = dag_crud.create(db, schemas.DagCreate(graph=self.id_graph))
+        self.id = self.db_dag.id
 
     def extract_tasks_and_id_graph(self, graph: dict[Task, set[Task]]) -> tuple[set[Task], dict[Task, list[Task]]]:
         tasks = set()

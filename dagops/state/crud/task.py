@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from dagops.state import models
 from dagops.state.crud.base import CRUD
 from dagops.state.schemas import TaskCreate
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 
 class TaskCRUD(CRUD):
@@ -24,6 +24,8 @@ class TaskCRUD(CRUD):
         db.commit()
         db.refresh(db_task)
         return db_task
+
+    
 
 
 task_crud = TaskCRUD(models.Task)

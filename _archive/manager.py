@@ -4,7 +4,7 @@ import time
 
 import requests
 
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 
 # class DagManager:

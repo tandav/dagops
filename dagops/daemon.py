@@ -17,7 +17,7 @@ from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 from dagops.task import ShellTask
 from dagops.task import Task
-from dagops.task import TaskStatus
+from dagops.task_status import TaskStatus
 
 dotenv.load_dotenv()
 
@@ -171,21 +171,23 @@ class AsyncWatcher:
     async def create_dag(self, file: str) -> Dag:
         print('dag for file', file, 'start creating...')
         command = sys.executable, '-u', 'write_to_mongo.py'
-        a = task_crud.create(self.db, schemas.TaskCreate(command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'}))
-        b = task_crud.create(self.db, schemas.TaskCreate(command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'}))
-        c = task_crud.create(self.db, schemas.TaskCreate(command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'}))
-        d = task_crud.create(self.db, schemas.TaskCreate(command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'}))
-        e = task_crud.create(self.db, schemas.TaskCreate(command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'}))
+        a = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'})
+        b = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'})
+        c = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'})
+        d = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'})
+        e = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'})
         graph = {
-            a.id: [],
-            b.id: [],
-            c.id: [a.id, b.id],
-            d.id: [],
-            e.id: [c.id, d.id],
+            a: [],
+            b: [],
+            c: [a, b],
+            d: [],
+            e: [c, d],
         }
-        dag = dag_crud.create(self.db, schemas.DagCreate(graph=graph))
-        # pending_queue = asyncio.Queue()
-        # done_queue = asyncio.Queue()
+        # db_dag = dag_crud.create(self.db, schemas.DagCreate(graph=graph))
+
+        pending_queue = asyncio.Queue()
+        done_queue = asyncio.Queue()
+        dag = Dag(self.db, graph, pending_queue, done_queue)
         # dag = Dag(graph, self.pending_queue, done_queue)
         # dag_tasks = {t.id for t in dag.tasks}
 
@@ -275,22 +277,30 @@ class AsyncWatcher:
             await asyncio.sleep(1)
 
     async def cancel_orphaned_tasks(self):
+        await asyncio.sleep(1)
+        pending = task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING)
+        running = task_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
+        orphaned_tasks = pending + running
+        for task in orphaned_tasks:
+            task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
+
         # tasks = await self.state.get_tasks()
         # tasks_statuses = await self.extraredis.mhget_field(self.TASK_PREFIX, 'status', tasks)
-        tasks_statuses = await self.state.tasks_statuses()
-        tasks_to_cancel = {}
-        for task_id, status in tasks_statuses.items():
-            if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
-                tasks_to_cancel[task_id] = TaskStatus.CANCELED
-        await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', tasks_to_cancel)
+        # tasks_statuses = await self.state.tasks_statuses()
+        # tasks_to_cancel = {}
+        # for task_id, status in tasks_statuses.items():
+        #     if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
+        #         tasks_to_cancel[task_id] = TaskStatus.CANCELED
+        # await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', tasks_to_cancel)
 
     async def process_tasks(self):
         await self.cancel_orphaned_tasks()
 
         while True:
             print('watching', self.watch_path)
-            task = await self.pending_queue.get()
-            await self.start_task(task)
+            # task = await self.pending_queue.get()
+            # await self.start_task(task)
+
             # statuses = await self.state.tasks_statuses()
             # for task_id, status in statuses.items():
             #     if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
@@ -303,7 +313,7 @@ class AsyncWatcher:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
-            # tg.create_task(self.process_tasks())
+            tg.create_task(self.process_tasks())
             # tg.create_task(self.handle_tasks())
             # tg.create_task(self.handlers_dags())
 
