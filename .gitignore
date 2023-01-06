@@ -1,5 +1,6 @@
 static/*
 !static/templates
 !static/css
+!static/favicon.ico
 *.ipynb
 *.sqlite

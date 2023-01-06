@@ -8,7 +8,6 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
-from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -16,7 +15,6 @@ from starlette.templating import Jinja2Templates
 
 from dagops import util
 from dagops.dependencies import get_db
-from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
@@ -47,6 +45,10 @@ templates.env.filters['format_time'] = util.format_time
 async def root():
     return RedirectResponse('/tasks/')
 
+
+@app.get('/favicon.ico', response_class=HTMLResponse)
+async def favicon():
+    return FileResponse(static_folder / 'favicon.ico')
 
 # =============================================================================
 
@@ -295,6 +297,7 @@ def api_create_file(
 ):
     db_obj = file_crud.create(db, file)
     return db_obj
+
 
 @app.post(
     '/api/files/many',
