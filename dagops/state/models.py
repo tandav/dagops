@@ -11,7 +11,7 @@ from dagops.task_status import TaskStatus
 
 
 def uuid_gen():
-    return str(uuid.uuid4())
+    return uuid.uuid4().hex
 
 
 Base = declarative_base()

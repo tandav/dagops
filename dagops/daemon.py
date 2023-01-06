@@ -276,13 +276,21 @@ class AsyncWatcher:
             file_crud.create_many(self.db, [schemas.FileCreate(path=file) for file in files - up_to_date_files_paths])
             await asyncio.sleep(1)
 
-    async def cancel_orphaned_tasks(self):
-        await asyncio.sleep(1)
+    async def cancel_orphaned(self):
+        # tasks
         pending = task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING)
         running = task_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
         orphaned_tasks = pending + running
         for task in orphaned_tasks:
             task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
+
+        # dags
+        pending = dag_crud.read_by_field(self.db, 'status', TaskStatus.PENDING)
+        running = dag_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
+        orphaned_dags = pending + running
+        for dag in orphaned_dags:
+            dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
+
 
         # tasks = await self.state.get_tasks()
         # tasks_statuses = await self.extraredis.mhget_field(self.TASK_PREFIX, 'status', tasks)
@@ -294,7 +302,7 @@ class AsyncWatcher:
         # await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', tasks_to_cancel)
 
     async def process_tasks(self):
-        await self.cancel_orphaned_tasks()
+        await self.cancel_orphaned()
 
         while True:
             print('watching', self.watch_path)
