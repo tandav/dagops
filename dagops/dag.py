@@ -1,10 +1,11 @@
 import asyncio
 import graphlib
-import uuid
+
+from sqlalchemy.orm import Session
+
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.task import Task
-from sqlalchemy.orm import Session
 
 
 class Dag:
@@ -41,3 +42,6 @@ class Dag:
                 await self.pending_queue.put(task)
             task = await self.done_queue.get()
             self.graph.done(task)
+
+    def __hash__(self) -> int:
+        return hash(self.id)

@@ -1,8 +1,10 @@
 import abc
 import asyncio
+
+from sqlalchemy.orm import Session
+
 from dagops.state import schemas
 from dagops.state.crud.task import task_crud
-from sqlalchemy.orm import Session
 
 
 class Task:
@@ -35,10 +37,13 @@ class ShellTask(Task):
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
-        self.status = None
         self.db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
         self.id = self.db_task.id
         self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
+
+    @property
+    def status(self) -> schemas.TaskStatus:
+        return task_crud.read_by_id(self.db, self.id).status
 
     async def run(self):
         p = await asyncio.create_subprocess_exec(
@@ -51,6 +56,8 @@ class ShellTask(Task):
         self.logs_fh.close()
         return p
 
+    def __hash__(self) -> int:
+        return hash(self.id)
 # class Task:
 #     def __init__(self, deps: list[str], **kwargs):
 #         self.deps = deps

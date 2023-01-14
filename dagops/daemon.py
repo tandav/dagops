@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import json
 import sys
 
 import aiofiles.os
@@ -27,7 +26,8 @@ class AsyncWatcher:
         self.watch_path = watch_path
         self.pending_queue = asyncio.Queue(maxsize=10)
         self.tasks = {}  # task_id: Task
-        self.dags = {}  # dag_id: Dag
+        # self.dags = {}  # dag_id: Dag
+        self.dags = set()
         self.running_tasks = {}
         self.running_dags = {}
         self.task_to_dag = {}
@@ -82,31 +82,45 @@ class AsyncWatcher:
 
     async def handlers_dags(self):
         while True:
-            if not self.running_dags:
+            if not self.dags:
                 await asyncio.sleep(1)
                 continue
+
+            for dag in self.dags:
+                self.running_dags[dag] = asyncio.create_task(dag.run())
+
             print(self.running_dags)
-            dag_to_dag_id = {t: k for k, t in self.running_dags.items()}
-            done, running = await asyncio.wait(dag_to_dag_id, return_when=asyncio.FIRST_COMPLETED)
-            for aio_dag in done:
+            dag_aiotask_to_dag = {dag_aiotask: dag_id for dag_id, dag_aiotask in self.running_dags.items()}
+            done, running = await asyncio.wait(dag_aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
+            for dag_aiotask in done:
                 # d = aio_dag.result()
-                dag_id = dag_to_dag_id[aio_dag]
-                dag = self.dags[dag_id]
+                dag = dag_aiotask_to_dag[dag_aiotask]
                 status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
                 success_tasks = sum(1 for t in dag.tasks if t.status == TaskStatus.SUCCESS)
                 status = TaskStatus.SUCCESS if success_tasks == len(dag.tasks) else TaskStatus.FAILED
 
                 stopped_at = datetime.datetime.now()
-                await self.extraredis.hset_fields(
-                    self.state.DAG_PREFIX, dag_id, {
-                        'status': status,
-                        'stopped_at': str(stopped_at),
-                        'duration': (stopped_at - dag.started_at).seconds,
-                        'success_tasks': f'{success_tasks}/{len(dag.tasks)}',
-                    },
+                dag_crud.update_by_id(
+                    self.db,
+                    dag.id,
+                    schemas.DagUpdate(
+                        status=status,
+                        stopped_at=stopped_at,
+                        updated_at=stopped_at,
+                        uration=(stopped_at - dag.started_at).seconds,
+                        success_tasks=f'{success_tasks}/{len(dag.tasks)}',
+                    ),
                 )
-                del self.running_dags[dag_id]
-                del self.dags[dag_id]
+                # await self.extraredis.hset_fields(
+                #     self.state.DAG_PREFIX, dag_id, {
+                #         'status': status,
+                #         'stopped_at': str(stopped_at),
+                #         'duration': (stopped_at - dag.started_at).seconds,
+                #         'success_tasks': f'{success_tasks}/{len(dag.tasks)}',
+                #     },
+                # )
+                del self.running_dags[dag]
+                del self.dags[dag]
             await asyncio.sleep(1)
 
         #     task_id = await self.pending_queue.get()
@@ -137,36 +151,36 @@ class AsyncWatcher:
             # print(await redis.get(key))
             # self.queue.task_done()
 
-    async def start_task(self, task: Task):
-        # task = self.tasks[task_id]
-        now = datetime.datetime.now()
-        task.started_at = now
-        await self.extraredis.hset_fields(
-            self.state.TASK_PREFIX, task.id, {
-                'status': TaskStatus.RUNNING,
-                'command': json.dumps(task.command),
-                'env': json.dumps(task.env),
-                'started_at': str(now),
-            },
-        )
-        dag = self.task_to_dag[task.id]
-        dag.started_at = now
-        await self.extraredis.hset_fields(
-            self.state.DAG_PREFIX, dag.id, {
-                'status': TaskStatus.RUNNING,
-                'started_at': str(now),
-            },
-        )
+    # async def start_task(self, task: Task):
+    #     # task = self.tasks[task_id]
+    #     now = datetime.datetime.now()
+    #     task.started_at = now
+    #     await self.extraredis.hset_fields(
+    #         self.state.TASK_PREFIX, task.id, {
+    #             'status': TaskStatus.RUNNING,
+    #             'command': json.dumps(task.command),
+    #             'env': json.dumps(task.env),
+    #             'started_at': str(now),
+    #         },
+    #     )
+    #     dag = self.task_to_dag[task.id]
+    #     dag.started_at = now
+    #     await self.extraredis.hset_fields(
+    #         self.state.DAG_PREFIX, dag.id, {
+    #             'status': TaskStatus.RUNNING,
+    #             'started_at': str(now),
+    #         },
+    #     )
 
-        # await self.state.set_shell_task(task, TaskStatus.RUNNING)
-        self.running_tasks[task.id] = asyncio.create_task(task.run())
+    #     # await self.state.set_shell_task(task, TaskStatus.RUNNING)
+    #     self.running_tasks[task.id] = asyncio.create_task(task.run())
 
-        # self.running_tasks[task_id] = asyncio.create_task(task.run())
-        # task = self.tasks[task_id]
-        # self.running_tasks[task_id] = asyncio.create_task(task.run())
+    #     # self.running_tasks[task_id] = asyncio.create_task(task.run())
+    #     # task = self.tasks[task_id]
+    #     # self.running_tasks[task_id] = asyncio.create_task(task.run())
 
-    async def stop_task(self):
-        pass
+    # async def stop_task(self):
+    #     pass
 
     async def create_dag(self, file: str) -> Dag:
         print('dag for file', file, 'start creating...')
@@ -232,7 +246,8 @@ class AsyncWatcher:
                 if file.dag_id is None:
                     print('dag for file', file.path, 'start creating...')
                     dag = await self.create_dag(file.path)
-                    self.dags[dag.id] = dag
+                    # self.dags[dag.id] = dag
+                    self.dags.add(dag)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag.id))
             # files_dags = await self.state.files_dags()
             # to_update = {}
@@ -282,6 +297,7 @@ class AsyncWatcher:
         running = task_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
         orphaned_tasks = pending + running
         for task in orphaned_tasks:
+            print('canceling orphaned task', task.id)
             task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
 
         # dags
@@ -289,17 +305,8 @@ class AsyncWatcher:
         running = dag_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
         orphaned_dags = pending + running
         for dag in orphaned_dags:
+            print('canceling orphaned dag', dag.id)
             dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
-
-
-        # tasks = await self.state.get_tasks()
-        # tasks_statuses = await self.extraredis.mhget_field(self.TASK_PREFIX, 'status', tasks)
-        # tasks_statuses = await self.state.tasks_statuses()
-        # tasks_to_cancel = {}
-        # for task_id, status in tasks_statuses.items():
-        #     if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
-        #         tasks_to_cancel[task_id] = TaskStatus.CANCELED
-        # await self.extraredis.mhset_field(self.state.TASK_PREFIX, 'status', tasks_to_cancel)
 
     async def process_tasks(self):
         await self.cancel_orphaned()
