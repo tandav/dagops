@@ -49,7 +49,7 @@ class AsyncWatcher:
     #     await p.communicate()
     #     return p
 
-    async def handle_tasks(self):
+    async def handle_pending_queue(self):
         while True:
             if self.pending_queue.empty():
                 await asyncio.sleep(1)
@@ -59,9 +59,16 @@ class AsyncWatcher:
                 task = await self.pending_queue.get()
                 print('task', task)
                 self.task_to_aiotask[task] = asyncio.create_task(task.run())
+
+    async def handle_tasks(self):
+        while True:
+            if not self.task_to_aiotask:
+                await asyncio.sleep(1)
+                continue
+            print('self.task_to_aiotask:', self.task_to_aiotask)
+
             # for task in self.pending_queue:
-                # self.task_to_aiotask[task] = asyncio.create_task(task.run())
-            print(self.task_to_aiotask)
+            # self.task_to_aiotask[task] = asyncio.create_task(task.run())
             aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
 
             done, running = await asyncio.wait(aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
@@ -104,10 +111,12 @@ class AsyncWatcher:
                 del self.task_to_aiotask[task]
                 # self.tasks.remove(task)
                 await task.dag.done_queue.put(task)
+                print('EXITING TASK', task.id, task.status)
             await asyncio.sleep(1)
 
     async def handlers_dags(self):
         while True:
+            print('----------< handlers_dags self.dags', self.dags)
             if not self.dags:
                 await asyncio.sleep(1)
                 continue
@@ -118,6 +127,7 @@ class AsyncWatcher:
             print(self.dag_to_aiotask)
             aiotask_to_dag = {dag_aiotask: dag for dag, dag_aiotask in self.dag_to_aiotask.items()}
             done, running = await asyncio.wait(aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
+            print('done', done)
             for dag_aiotask in done:
                 # d = aio_dag.result()
                 dag = aiotask_to_dag[dag_aiotask]
@@ -137,14 +147,6 @@ class AsyncWatcher:
                         success_tasks=f'{success_tasks}/{len(dag.tasks)}',
                     ),
                 )
-                # await self.extraredis.hset_fields(
-                #     self.state.DAG_PREFIX, dag_id, {
-                #         'status': status,
-                #         'stopped_at': str(stopped_at),
-                #         'duration': (stopped_at - dag.started_at).seconds,
-                #         'success_tasks': f'{success_tasks}/{len(dag.tasks)}',
-                #     },
-                # )
                 del self.dag_to_aiotask[dag]
                 self.dags.remove(dag)
             await asyncio.sleep(1)
@@ -341,7 +343,7 @@ class AsyncWatcher:
         await self.cancel_orphaned()
 
         while True:
-            print('watching', self.watch_path)
+            # print('watching', self.watch_path, datetime.datetime.now())
             # task = await self.pending_queue.get()
             # await self.start_task(task)
 
@@ -358,6 +360,7 @@ class AsyncWatcher:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
             tg.create_task(self.process_tasks())
+            tg.create_task(self.handle_pending_queue())
             tg.create_task(self.handle_tasks())
             tg.create_task(self.handlers_dags())
 
