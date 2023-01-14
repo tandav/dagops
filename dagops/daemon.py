@@ -78,18 +78,6 @@ class AsyncWatcher:
                         returncode=p.returncode,
                     ),
                 )
-
-                # await self.extraredis.hset_fields(
-                #     self.state.TASK_PREFIX, task.id, {
-                #         'status': status,
-                #         'stopped_at': str(stopped_at),
-                #         'duration': (stopped_at - self.tasks[task.id].started_at).seconds,
-                #         'returncode': p.returncode,
-                #     },
-                # )
-                # self.logs_handlers[task_id].close()
-                # del self.logs_handlers[task_id]
-                # assert self.tasks[task_id] in self.task_to_dag[task_id].tasks
                 # task = self.tasks[task_id]
                 # task.status = status
                 del self.task_to_aiotask[task]
@@ -98,14 +86,20 @@ class AsyncWatcher:
                 print('EXITING TASK', task.id, task.status)
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    async def handlers_dags(self):
+    async def handle_pending_dags(self):
         while True:
             if not self.dags:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-
             for dag in self.dags:
                 self.dag_to_aiotask[dag] = asyncio.create_task(dag.run())
+            self.dags.clear()
+
+    async def handlers_dags(self):
+        while True:
+            if not self.dag_to_aiotask:
+                await asyncio.sleep(constant.SLEEP_TIME)
+                continue
 
             print(self.dag_to_aiotask)
             aiotask_to_dag = {dag_aiotask: dag for dag, dag_aiotask in self.dag_to_aiotask.items()}
@@ -131,7 +125,6 @@ class AsyncWatcher:
                     ),
                 )
                 del self.dag_to_aiotask[dag]
-                self.dags.remove(dag)
             await asyncio.sleep(constant.SLEEP_TIME)
 
         #     task_id = await self.pending_queue.get()
@@ -344,6 +337,7 @@ class AsyncWatcher:
             tg.create_task(self.update_files_dags())
             tg.create_task(self.process_tasks())
             tg.create_task(self.handle_pending_queue())
+            tg.create_task(self.handle_pending_dags())
             tg.create_task(self.handle_tasks())
             tg.create_task(self.handlers_dags())
 
