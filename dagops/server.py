@@ -402,3 +402,13 @@ async def task_json_attr(
 ):
     task = task_crud.read_by_id(db, task_id)
     return getattr(task, json_attr)
+
+
+@app.get('/dags/{dag_id}/{json_attr}.json')
+async def dag_json_attr(
+    dag_id: str,
+    json_attr: str,
+    db: Session = Depends(get_db),
+):
+    dag = dag_crud.read_by_id(db, dag_id)
+    return getattr(dag, json_attr)
