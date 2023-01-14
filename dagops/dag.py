@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.task import Task
+from dagops.task_status import TaskStatus
 
 
 class Dag:
@@ -45,6 +46,12 @@ class Dag:
 
     async def run(self) -> None:
         self.started_at = datetime.datetime.now()
+        dag_crud.update_by_id(
+            self.db, self.id, schemas.DagUpdate(
+                started_at=self.started_at,
+                status=TaskStatus.RUNNING,
+            ),
+        )
         while self.graph.is_active():
             for task in self.graph.get_ready():
                 await self.pending_queue.put(task)  # todo: try put in shared queue that is shared for all dags

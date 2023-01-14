@@ -381,26 +381,24 @@ def read_file(
 # =============================================================================
 
 
-# @app.get('/logs/', response_class=HTMLResponse)
-# async def logs(request: Request):
-#     logs = await util.dirstat(static_folder / 'logs')
-#     for log in logs:
-#         log['log_id'] = Path(log['name']).stem
-#     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
+@app.get('/logs/', response_class=HTMLResponse)
+async def logs(request: Request):
+    logs = await util.dirstat(static_folder / 'logs')
+    for log in logs:
+        log['log_id'] = Path(log['name']).stem
+    return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
 
 
-# @app.get('/logs/{task_id}.txt', response_class=FileResponse)
-# async def log(task_id: str, request: Request):
-#     return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
+@app.get('/logs/{task_id}.txt', response_class=FileResponse)
+async def log(task_id: str):
+    return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
 
 
-# @app.get('/tasks/{task_id}/command.json', response_class=JSONResponse)
-# async def task_command(task_id: str):
-#     task = await state.get_task_info(task_id)
-#     return JSONResponse(json.loads(task['command']))
-
-
-# @app.get('/tasks/{task_id}/env.json', response_class=JSONResponse)
-# async def task_env(task_id: str):
-#     task = await state.get_task_info(task_id)
-#     return JSONResponse(json.loads(task['env']))
+@app.get('/tasks/{task_id}/{json_attr}.json')
+async def task_json_attr(
+    task_id: str,
+    json_attr: str,
+    db: Session = Depends(get_db),
+):
+    task = task_crud.read_by_id(db, task_id)
+    return getattr(task, json_attr)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from dagops.state import schemas
 from dagops.state.crud.task import task_crud
+from dagops.task_status import TaskStatus
 
 
 class Task:
@@ -58,6 +59,12 @@ class ShellTask(Task):
 
     async def run(self):
         self.started_at = datetime.datetime.now()
+        task_crud.update_by_id(
+            self.db, self.id, schemas.TaskUpdate(
+                started_at=self.started_at,
+                status=TaskStatus.RUNNING,
+            ),
+        )
         self.logs_fh.write(f'test2\n')
         p = await asyncio.create_subprocess_exec(
             *self.command,

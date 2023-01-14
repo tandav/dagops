@@ -27,7 +27,7 @@ class AsyncWatcher:
         self.pending_queue = asyncio.Queue(maxsize=10)  # shared queue for all dags
         # self.tasks = {}  # task_id: Task
         # self.dags = {}  # dag_id: Dag
-        self.tasks = set()
+        # self.tasks = set()
         self.dags = set()
         # self.running_tasks = {}
         # self.running_dags = {}
@@ -51,12 +51,16 @@ class AsyncWatcher:
 
     async def handle_tasks(self):
         while True:
-            print(self.tasks)
-            if not self.tasks:
+            if self.pending_queue.empty():
                 await asyncio.sleep(1)
                 continue
-            for task in self.tasks:
+            print('self.pending_queue:', self.pending_queue)
+            while not self.pending_queue.empty():
+                task = await self.pending_queue.get()
+                print('task', task)
                 self.task_to_aiotask[task] = asyncio.create_task(task.run())
+            # for task in self.pending_queue:
+                # self.task_to_aiotask[task] = asyncio.create_task(task.run())
             print(self.task_to_aiotask)
             aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
 
@@ -98,7 +102,7 @@ class AsyncWatcher:
                 # task = self.tasks[task_id]
                 # task.status = status
                 del self.task_to_aiotask[task]
-                self.tasks.remove(task)
+                # self.tasks.remove(task)
                 await task.dag.done_queue.put(task)
             await asyncio.sleep(1)
 
@@ -226,7 +230,7 @@ class AsyncWatcher:
         # dag = Dag(self.db, graph, pending_queue, done_queue)
         dag = Dag(self.db, graph, self.pending_queue, done_queue)
         for task in dag.tasks:
-            self.tasks.add(task)
+            # self.tasks.add(task)
             task.dag = dag
         # dag_tasks = {t.id for t in dag.tasks}
 
