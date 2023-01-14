@@ -7,8 +7,8 @@ import dotenv
 from extraredis._async import ExtraRedisAsync
 from fastapi import Depends
 
+from dagops import constant
 from dagops.dag import Dag
-# from dagops.state import State
 from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
@@ -24,7 +24,7 @@ dotenv.load_dotenv()
 class AsyncWatcher:
     def __init__(self, watch_path: str, db):
         self.watch_path = watch_path
-        self.pending_queue = asyncio.Queue(maxsize=10)  # shared queue for all dags
+        self.pending_queue = asyncio.Queue(maxsize=32)  # shared queue for all dags
         # self.tasks = {}  # task_id: Task
         # self.dags = {}  # dag_id: Dag
         # self.tasks = set()
@@ -39,43 +39,27 @@ class AsyncWatcher:
         # self.state = State(self.extraredis)
         self.db = db
 
-    # async def run_subprocess(self, cmd, env, logs_fh):
-    #     p = await asyncio.create_subprocess_exec(
-    #         *cmd,
-    #         env=env,
-    #         stdout=logs_fh,
-    #         stderr=asyncio.subprocess.STDOUT,
-    #     )
-    #     await p.communicate()
-    #     return p
-
     async def handle_pending_queue(self):
         while True:
             if self.pending_queue.empty():
-                await asyncio.sleep(1)
+                await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            print('self.pending_queue:', self.pending_queue)
             while not self.pending_queue.empty():
                 task = await self.pending_queue.get()
-                print('task', task)
                 self.task_to_aiotask[task] = asyncio.create_task(task.run())
 
     async def handle_tasks(self):
         while True:
             if not self.task_to_aiotask:
-                await asyncio.sleep(1)
+                await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            print('self.task_to_aiotask:', self.task_to_aiotask)
-
             # for task in self.pending_queue:
             # self.task_to_aiotask[task] = asyncio.create_task(task.run())
             aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
 
             done, running = await asyncio.wait(aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
             for aio_task in done:
-                print('dFFFFone', aio_task)
                 p = aio_task.result()
-                print('pFFFFFFF', p)
                 assert p.returncode is not None
                 task = aiotask_to_task[aio_task]
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
@@ -112,13 +96,12 @@ class AsyncWatcher:
                 # self.tasks.remove(task)
                 await task.dag.done_queue.put(task)
                 print('EXITING TASK', task.id, task.status)
-            await asyncio.sleep(1)
+            await asyncio.sleep(constant.SLEEP_TIME)
 
     async def handlers_dags(self):
         while True:
-            print('----------< handlers_dags self.dags', self.dags)
             if not self.dags:
-                await asyncio.sleep(1)
+                await asyncio.sleep(constant.SLEEP_TIME)
                 continue
 
             for dag in self.dags:
@@ -149,7 +132,7 @@ class AsyncWatcher:
                 )
                 del self.dag_to_aiotask[dag]
                 self.dags.remove(dag)
-            await asyncio.sleep(1)
+            await asyncio.sleep(constant.SLEEP_TIME)
 
         #     task_id = await self.pending_queue.get()
         #     await self.start_task(task_id)
@@ -173,7 +156,7 @@ class AsyncWatcher:
         # self.logs_handlers[task_id] = logs_fh
         # task = asyncio.create_task(self.run_subprocess(cmd, env, logs_fh))
 
-            # await asyncio.sleep(1)
+            # await asyncio.sleep(constant.SLEEP_TIME)
             # status = random.choice([TaskStatus.SUCCESS, TaskStatusf.FAILED])
             # await redis.set(key, status)
             # print(await redis.get(key))
@@ -292,7 +275,7 @@ class AsyncWatcher:
                     # self.tasks[task.id] = task
                     # to_update[file] = dag.id
             # if len(to_update) == 0:
-            #     await asyncio.sleep(1)
+            #     await asyncio.sleep(constant.SLEEP_TIME)
             #     continue
             # await self.extraredis.mset(self.state.FILE_DAG_PREFIX, to_update)
             # await self.extraredis.redis.sadd(self.state.DAG_SET, *to_update.values())
@@ -306,7 +289,7 @@ class AsyncWatcher:
                 # await self.pending_queue.put(dag)
                 # self.running_dags[dag.id] = asyncio.create_task(dag.run())
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(constant.SLEEP_TIME)
 
     async def watch_directory(self):
         while True:
@@ -320,7 +303,7 @@ class AsyncWatcher:
                     up_to_date_files_paths.add(file.path)
             file_crud.delete_many_by_ids(self.db, stale_files_ids)
             file_crud.create_many(self.db, [schemas.FileCreate(path=file) for file in files - up_to_date_files_paths])
-            await asyncio.sleep(1)
+            await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphaned(self):
         # tasks
@@ -353,7 +336,7 @@ class AsyncWatcher:
             #         print(task_id, status)
             #     if status == TaskStatus.PENDING:
             #         await self.start_task(task_id)
-            await asyncio.sleep(1)
+            await asyncio.sleep(constant.SLEEP_TIME)
 
     async def main(self):
         async with asyncio.TaskGroup() as tg:

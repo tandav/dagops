@@ -10,7 +10,7 @@
 <th>created_at</th>
 <th>started_at</th>
 <th>stopped_at</th>
-<th>duration</th>
+<th>duration_seconds</th>
 </tr>
 <thead>
 </thead>
@@ -22,7 +22,7 @@
         <td><code>{{ dag.created_at|format_time if dag.created_at is not none else 'NONE'}}</code></td>
         <td><code>{{ dag.started_at|format_time if dag.started_at is not none else 'NONE'}}</code></td>
         <td><code>{{ dag.stopped_at|format_time if dag.stopped_at is not none else 'NONE'}}</code></td>
-        <td><code>{{ dag.duration }}</code> seconds</td>
+        <td><code>{{ dag.duration_seconds|round(1) if dag.duration_seconds is not none else 'NULL' }}</code></td>
     </tr>
 {% endfor %}
 </table>
