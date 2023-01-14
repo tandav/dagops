@@ -16,6 +16,10 @@
         <td>{{ task.id }}</td>
     </tr>
     <tr>
+        <td>dag_id</td>
+        <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id }}</code></a></td>
+    </tr>
+    <tr>
         <td>status</td>
         <td><code>{{ task.status }}</code></td>
     </tr>

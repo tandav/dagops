@@ -2,6 +2,7 @@
 <thead>
     <tr>
         <th>id</th>
+        <th>dag_id</th>
         <th>status</th>
         <th>command</th>
         <th>env</th>
@@ -18,6 +19,7 @@
 {% for task in tasks %}
     <tr>
         <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
+        <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
         <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
         <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.env|truncate(20) }}</code></a></td>
