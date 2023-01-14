@@ -24,60 +24,82 @@ dotenv.load_dotenv()
 class AsyncWatcher:
     def __init__(self, watch_path: str, db):
         self.watch_path = watch_path
-        self.pending_queue = asyncio.Queue(maxsize=10)
-        self.tasks = {}  # task_id: Task
+        self.pending_queue = asyncio.Queue(maxsize=10)  # shared queue for all dags
+        # self.tasks = {}  # task_id: Task
         # self.dags = {}  # dag_id: Dag
+        self.tasks = set()
         self.dags = set()
-        self.running_tasks = {}
-        self.running_dags = {}
-        self.task_to_dag = {}
+        # self.running_tasks = {}
+        # self.running_dags = {}
+        self.dag_to_aiotask = {}
+        self.task_to_aiotask = {}
+
+        # self.task_to_dag = {}
         self.extraredis = ExtraRedisAsync(decode_responses=True)
         # self.state = State(self.extraredis)
         self.db = db
 
-    async def run_subprocess(self, cmd, env, logs_fh):
-        p = await asyncio.create_subprocess_exec(
-            *cmd,
-            env=env,
-            stdout=logs_fh,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        await p.communicate()
-        return p
+    # async def run_subprocess(self, cmd, env, logs_fh):
+    #     p = await asyncio.create_subprocess_exec(
+    #         *cmd,
+    #         env=env,
+    #         stdout=logs_fh,
+    #         stderr=asyncio.subprocess.STDOUT,
+    #     )
+    #     await p.communicate()
+    #     return p
 
     async def handle_tasks(self):
         while True:
-            if not self.running_tasks:
+            print(self.tasks)
+            if not self.tasks:
                 await asyncio.sleep(1)
                 continue
-            print(self.running_tasks)
-            task_to_task_id = {t: k for k, t in self.running_tasks.items()}
-            done, running = await asyncio.wait(task_to_task_id, return_when=asyncio.FIRST_COMPLETED)
+            for task in self.tasks:
+                self.task_to_aiotask[task] = asyncio.create_task(task.run())
+            print(self.task_to_aiotask)
+            aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
+
+            done, running = await asyncio.wait(aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
             for aio_task in done:
+                print('dFFFFone', aio_task)
                 p = aio_task.result()
+                print('pFFFFFFF', p)
                 assert p.returncode is not None
-                task_id = task_to_task_id[aio_task]
+                task = aiotask_to_task[aio_task]
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
                 # await self.state.set_task_status(task_id, status)
                 # task.stopped_at = datetime.datetime.now()
                 stopped_at = datetime.datetime.now()
-                await self.extraredis.hset_fields(
-                    self.state.TASK_PREFIX, task_id, {
-                        'status': status,
-                        'stopped_at': str(stopped_at),
-                        'duration': (stopped_at - self.tasks[task_id].started_at).seconds,
-                        'returncode': p.returncode,
-                    },
+
+                task_crud.update_by_id(
+                    self.db,
+                    task.id,
+                    schemas.TaskUpdate(
+                        status=status,
+                        stopped_at=stopped_at,
+                        updated_at=stopped_at,
+                        duration=(stopped_at - task.started_at).seconds,
+                        returncode=p.returncode,
+                    ),
                 )
+
+                # await self.extraredis.hset_fields(
+                #     self.state.TASK_PREFIX, task.id, {
+                #         'status': status,
+                #         'stopped_at': str(stopped_at),
+                #         'duration': (stopped_at - self.tasks[task.id].started_at).seconds,
+                #         'returncode': p.returncode,
+                #     },
+                # )
                 # self.logs_handlers[task_id].close()
                 # del self.logs_handlers[task_id]
                 # assert self.tasks[task_id] in self.task_to_dag[task_id].tasks
-                task = self.tasks[task_id]
-                task.status = status
-                del self.running_tasks[task_id]
-                del self.tasks[task_id]
-                dag = self.task_to_dag[task_id]
-                await dag.done_queue.put(task)
+                # task = self.tasks[task_id]
+                # task.status = status
+                del self.task_to_aiotask[task]
+                self.tasks.remove(task)
+                await task.dag.done_queue.put(task)
             await asyncio.sleep(1)
 
     async def handlers_dags(self):
@@ -87,14 +109,14 @@ class AsyncWatcher:
                 continue
 
             for dag in self.dags:
-                self.running_dags[dag] = asyncio.create_task(dag.run())
+                self.dag_to_aiotask[dag] = asyncio.create_task(dag.run())
 
-            print(self.running_dags)
-            dag_aiotask_to_dag = {dag_aiotask: dag_id for dag_id, dag_aiotask in self.running_dags.items()}
-            done, running = await asyncio.wait(dag_aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
+            print(self.dag_to_aiotask)
+            aiotask_to_dag = {dag_aiotask: dag for dag, dag_aiotask in self.dag_to_aiotask.items()}
+            done, running = await asyncio.wait(aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
             for dag_aiotask in done:
                 # d = aio_dag.result()
-                dag = dag_aiotask_to_dag[dag_aiotask]
+                dag = aiotask_to_dag[dag_aiotask]
                 status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
                 success_tasks = sum(1 for t in dag.tasks if t.status == TaskStatus.SUCCESS)
                 status = TaskStatus.SUCCESS if success_tasks == len(dag.tasks) else TaskStatus.FAILED
@@ -107,7 +129,7 @@ class AsyncWatcher:
                         status=status,
                         stopped_at=stopped_at,
                         updated_at=stopped_at,
-                        uration=(stopped_at - dag.started_at).seconds,
+                        duration=(stopped_at - dag.started_at).seconds,
                         success_tasks=f'{success_tasks}/{len(dag.tasks)}',
                     ),
                 )
@@ -119,8 +141,8 @@ class AsyncWatcher:
                 #         'success_tasks': f'{success_tasks}/{len(dag.tasks)}',
                 #     },
                 # )
-                del self.running_dags[dag]
-                del self.dags[dag]
+                del self.dag_to_aiotask[dag]
+                self.dags.remove(dag)
             await asyncio.sleep(1)
 
         #     task_id = await self.pending_queue.get()
@@ -199,10 +221,13 @@ class AsyncWatcher:
         }
         # db_dag = dag_crud.create(self.db, schemas.DagCreate(graph=graph))
 
-        pending_queue = asyncio.Queue()
+        asyncio.Queue()
         done_queue = asyncio.Queue()
-        dag = Dag(self.db, graph, pending_queue, done_queue)
-        # dag = Dag(graph, self.pending_queue, done_queue)
+        # dag = Dag(self.db, graph, pending_queue, done_queue)
+        dag = Dag(self.db, graph, self.pending_queue, done_queue)
+        for task in dag.tasks:
+            self.tasks.add(task)
+            task.dag = dag
         # dag_tasks = {t.id for t in dag.tasks}
 
         # for task in dag.tasks:
@@ -329,8 +354,8 @@ class AsyncWatcher:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
             tg.create_task(self.process_tasks())
-            # tg.create_task(self.handle_tasks())
-            # tg.create_task(self.handlers_dags())
+            tg.create_task(self.handle_tasks())
+            tg.create_task(self.handlers_dags())
 
 
 if __name__ == '__main__':

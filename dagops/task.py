@@ -1,5 +1,6 @@
 import abc
 import asyncio
+import datetime
 
 from sqlalchemy.orm import Session
 
@@ -37,15 +38,27 @@ class ShellTask(Task):
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
-        self.db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
-        self.id = self.db_task.id
+        db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
+        self.id = db_task.id
         self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
+        self.logs_fh.write(f'test1\n')
+        self.dag = None
+
+    @property
+    def db_task(self):
+        return task_crud.read_by_id(self.db, self.id)
 
     @property
     def status(self) -> schemas.TaskStatus:
-        return task_crud.read_by_id(self.db, self.id).status
+        return self.db_task.status
+
+    @property
+    def dag_id(self) -> int:
+        return self.db_task.dag_id
 
     async def run(self):
+        self.started_at = datetime.datetime.now()
+        self.logs_fh.write(f'test2\n')
         p = await asyncio.create_subprocess_exec(
             *self.command,
             env=self.env,
@@ -53,6 +66,7 @@ class ShellTask(Task):
             stderr=asyncio.subprocess.STDOUT,
         )
         await p.communicate()
+        # raise RuntimeError('test')
         self.logs_fh.close()
         return p
 
