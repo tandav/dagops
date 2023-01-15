@@ -169,27 +169,12 @@ class AsyncWatcher:
             print('canceling orphaned dag', dag.id)
             dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
 
-    async def process_tasks(self):
-        await self.cancel_orphaned()
-
-        while True:
-            # print('watching', self.watch_path, datetime.datetime.now())
-            # task = await self.pending_queue.get()
-            # await self.start_task(task)
-
-            # statuses = await self.state.tasks_statuses()
-            # for task_id, status in statuses.items():
-            #     if status in {TaskStatus.PENDING, TaskStatus.RUNNING}:
-            #         print(task_id, status)
-            #     if status == TaskStatus.PENDING:
-            #         await self.start_task(task_id)
-            await asyncio.sleep(constant.SLEEP_TIME)
-
     async def main(self):
+        await self.cancel_orphaned()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
-            tg.create_task(self.process_tasks())
+            # tg.create_task(self.process_tasks())
             tg.create_task(self.handle_pending_queue())
             tg.create_task(self.handle_pending_dags())
             tg.create_task(self.handle_tasks())
