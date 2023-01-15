@@ -22,7 +22,7 @@ class CRUD:
         query = query.offset(skip).limit(limit)
         return query.all()
 
-    def read_many_isin(
+    def read_by_field_isin(
         self,
         db: Session,
         field: str,

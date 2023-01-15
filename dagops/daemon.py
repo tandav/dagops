@@ -24,7 +24,7 @@ class AsyncWatcher:
         self.aiotask_to_dag = {}
         self.aiotask_to_task = {}
 
-    async def handle_pending_queue(self):
+    async def handle_pending_tasks(self):
         while True:
             if self.pending_queue.empty():
                 await asyncio.sleep(constant.SLEEP_TIME)
@@ -118,9 +118,6 @@ class AsyncWatcher:
             e: [c, d],
         }
         dag = Dag(self.db, graph, self.pending_queue)
-        for task in dag.tasks:
-            task.dag = dag
-
         print('dag for file', file, 'created')
         return dag
 
@@ -152,13 +149,13 @@ class AsyncWatcher:
 
     async def cancel_orphaned(self):
         # tasks
-        orphaned = task_crud.read_many_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        orphaned = task_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
         for task in orphaned:
             print('canceling orphaned task', task.id)
             task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
 
         # dags
-        orphaned = dag_crud.read_many_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        orphaned = dag_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
         for dag in orphaned:
             print('canceling orphaned dag', dag.id)
             dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
@@ -168,8 +165,7 @@ class AsyncWatcher:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
-            # tg.create_task(self.process_tasks())
-            tg.create_task(self.handle_pending_queue())
+            tg.create_task(self.handle_pending_tasks())
             tg.create_task(self.handle_pending_dags())
             tg.create_task(self.handle_tasks())
             tg.create_task(self.handlers_dags())

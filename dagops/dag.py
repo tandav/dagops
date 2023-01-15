@@ -16,8 +16,6 @@ class Dag:
         db: Session,
         graph: dict[Task, set[Task]],
         pending_queue: asyncio.Queue[Task],
-        # done_queue: asyncio.Queue[Task],
-        # running_tasks: set[Task],
     ) -> None:
         self.db = db
         self.tasks, self.id_graph = self.extract_tasks_and_id_graph(graph)
@@ -30,7 +28,8 @@ class Dag:
         self.stopped_at = None
         db_dag = dag_crud.create(db, schemas.DagCreate(graph=self.id_graph))
         self.id = db_dag.id
-        # self.running_tasks = running_tasks
+        for task in self.tasks:
+            task.dag = self  # backref
 
     @property
     def db_task(self):
