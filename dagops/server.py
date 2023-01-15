@@ -22,15 +22,9 @@ from dagops.state.crud.task import task_crud
 
 dotenv.load_dotenv()
 
-# from dagops.state import State
-# import dagops.state.crud.task
-# import dagops.state.crud.dag
-# from dagops.state import crud
-
 
 static_folder = Path('static')
 app = FastAPI()
-# state = State()
 
 
 app.mount('/static/', StaticFiles(directory=static_folder), name='static')
