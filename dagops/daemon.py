@@ -21,8 +21,8 @@ class AsyncWatcher:
         self.db = db
         self.dags_pending_queue = asyncio.Queue(maxsize=32)
         self.pending_queue = asyncio.Queue(maxsize=32)
-        self.dag_to_aiotask = {}
-        self.task_to_aiotask = {}
+        self.aiotask_to_dag = {}
+        self.aiotask_to_task = {}
 
     async def handle_pending_queue(self):
         while True:
@@ -31,20 +31,19 @@ class AsyncWatcher:
                 continue
             while not self.pending_queue.empty():
                 task = await self.pending_queue.get()
-                self.task_to_aiotask[task] = asyncio.create_task(task.run())
+                self.aiotask_to_task[asyncio.create_task(task.run())] = task
 
     async def handle_tasks(self):
         while True:
-            if not self.task_to_aiotask:
+            if not self.aiotask_to_task:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
 
-            done, running = await asyncio.wait(aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
-            for aio_task in done:
-                p = aio_task.result()
+            done, running = await asyncio.wait(self.aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
+            for task_aiotask in done:
+                p = task_aiotask.result()
                 assert p.returncode is not None
-                task = aiotask_to_task[aio_task]
+                task = self.aiotask_to_task[task_aiotask]
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
                 stopped_at = datetime.datetime.now()
 
@@ -59,7 +58,7 @@ class AsyncWatcher:
                         returncode=p.returncode,
                     ),
                 )
-                del self.task_to_aiotask[task]
+                del self.aiotask_to_task[task_aiotask]
                 await task.dag.done_queue.put(task)
                 print('EXITING TASK', task.id, task.status)
             await asyncio.sleep(constant.SLEEP_TIME)
@@ -71,20 +70,19 @@ class AsyncWatcher:
                 continue
             while not self.dags_pending_queue.empty():
                 dag = await self.dags_pending_queue.get()
-                self.dag_to_aiotask[dag] = asyncio.create_task(dag.run())
+                self.aiotask_to_dag[asyncio.create_task(dag.run())] = dag
 
     async def handlers_dags(self):
         while True:
-            if not self.dag_to_aiotask:
+            if not self.aiotask_to_dag:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
 
-            print(self.dag_to_aiotask)
-            aiotask_to_dag = {dag_aiotask: dag for dag, dag_aiotask in self.dag_to_aiotask.items()}
-            done, running = await asyncio.wait(aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
+            print(self.aiotask_to_dag)
+            done, running = await asyncio.wait(self.aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
             print('done', done)
             for dag_aiotask in done:
-                dag = aiotask_to_dag[dag_aiotask]
+                dag = self.aiotask_to_dag[dag_aiotask]
                 status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
                 success_tasks = sum(1 for t in dag.tasks if t.status == TaskStatus.SUCCESS)
                 status = TaskStatus.SUCCESS if success_tasks == len(dag.tasks) else TaskStatus.FAILED
@@ -101,7 +99,7 @@ class AsyncWatcher:
                         success_tasks=f'{success_tasks}/{len(dag.tasks)}',
                     ),
                 )
-                del self.dag_to_aiotask[dag]
+                del self.aiotask_to_dag[dag_aiotask]
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def create_dag(self, file: str) -> Dag:
