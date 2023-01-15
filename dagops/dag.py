@@ -54,7 +54,7 @@ class Dag:
         )
         while self.graph.is_active():
             for task in self.graph.get_ready():
-                await self.pending_queue.put(task)  # todo: try put in shared queue that is shared for all dags
+                await self.pending_queue.put(task)
             task = await self.done_queue.get()
             self.graph.done(task)
 

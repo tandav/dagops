@@ -3,7 +3,6 @@ import datetime
 import sys
 
 import aiofiles.os
-from extraredis._async import ExtraRedisAsync
 
 from dagops import constant
 from dagops.dag import Dag
@@ -19,17 +18,11 @@ from dagops.task_status import TaskStatus
 class AsyncWatcher:
     def __init__(self, watch_path: str, db):
         self.watch_path = watch_path
-        self.pending_queue = asyncio.Queue(maxsize=32)  # shared queue for all dags
-        # self.tasks = {}  # task_id: Task
-        # self.dags = {}  # dag_id: Dag
-        # self.tasks = set()
-        self.dags = set()
+        self.db = db
+        self.dags_pending_queue = asyncio.Queue(maxsize=32)
+        self.pending_queue = asyncio.Queue(maxsize=32)
         self.dag_to_aiotask = {}
         self.task_to_aiotask = {}
-
-        # self.task_to_dag = {}
-        self.extraredis = ExtraRedisAsync(decode_responses=True)
-        self.db = db
 
     async def handle_pending_queue(self):
         while True:
@@ -45,8 +38,6 @@ class AsyncWatcher:
             if not self.task_to_aiotask:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            # for task in self.pending_queue:
-            # self.task_to_aiotask[task] = asyncio.create_task(task.run())
             aiotask_to_task = {task_aiotask: task for task, task_aiotask in self.task_to_aiotask.items()}
 
             done, running = await asyncio.wait(aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
@@ -68,22 +59,19 @@ class AsyncWatcher:
                         returncode=p.returncode,
                     ),
                 )
-                # task = self.tasks[task_id]
-                # task.status = status
                 del self.task_to_aiotask[task]
-                # self.tasks.remove(task)
                 await task.dag.done_queue.put(task)
                 print('EXITING TASK', task.id, task.status)
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def handle_pending_dags(self):
         while True:
-            if not self.dags:
+            if self.dags_pending_queue.empty():
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            for dag in self.dags:
+            while not self.dags_pending_queue.empty():
+                dag = await self.dags_pending_queue.get()
                 self.dag_to_aiotask[dag] = asyncio.create_task(dag.run())
-            self.dags.clear()
 
     async def handlers_dags(self):
         while True:
@@ -146,7 +134,7 @@ class AsyncWatcher:
                 if file.dag_id is None:
                     print('dag for file', file.path, 'start creating...')
                     dag = await self.create_dag(file.path)
-                    self.dags.add(dag)
+                    await self.dags_pending_queue.put(dag)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag.id))
             await asyncio.sleep(constant.SLEEP_TIME)
 
