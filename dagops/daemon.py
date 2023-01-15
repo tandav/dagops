@@ -154,18 +154,14 @@ class AsyncWatcher:
 
     async def cancel_orphaned(self):
         # tasks
-        pending = task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING)
-        running = task_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
-        orphaned_tasks = pending + running
-        for task in orphaned_tasks:
+        orphaned = task_crud.read_many_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        for task in orphaned:
             print('canceling orphaned task', task.id)
             task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
 
         # dags
-        pending = dag_crud.read_by_field(self.db, 'status', TaskStatus.PENDING)
-        running = dag_crud.read_by_field(self.db, 'status', TaskStatus.RUNNING)
-        orphaned_dags = pending + running
-        for dag in orphaned_dags:
+        orphaned = dag_crud.read_many_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        for dag in orphaned:
             print('canceling orphaned dag', dag.id)
             dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
 
