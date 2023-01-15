@@ -5,7 +5,7 @@ server:
 
 .PHONY: daemon
 daemon:
-	python -m dagops.daemon
+	python main.py
 
 .PHONY: bumpver
 bumpver:

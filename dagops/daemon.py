@@ -1,24 +1,29 @@
 import asyncio
 import datetime
-import sys
+from typing import Callable
 
 import aiofiles.os
+from sqlalchemy.orm import Session
 
 from dagops import constant
 from dagops.dag import Dag
-from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.task import ShellTask
 from dagops.task_status import TaskStatus
 
 
-class AsyncWatcher:
-    def __init__(self, watch_path: str, db):
+class Daemon:
+    def __init__(
+        self,
+        watch_path: str,
+        db: Session,
+        create_dag_func: Callable[[str, Session, asyncio.Queue], Dag],
+    ):
         self.watch_path = watch_path
         self.db = db
+        self.create_dag_func = create_dag_func
         self.dags_pending_queue = asyncio.Queue(maxsize=32)
         self.pending_queue = asyncio.Queue(maxsize=32)
         self.aiotask_to_dag = {}
@@ -102,24 +107,8 @@ class AsyncWatcher:
                 del self.aiotask_to_dag[dag_aiotask]
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    async def create_dag(self, file: str) -> Dag:
-        print('dag for file', file, 'start creating...')
-        command = sys.executable, '-u', 'write_to_mongo.py'
-        a = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'})
-        b = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'})
-        c = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'})
-        d = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'})
-        e = ShellTask(self.db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'})
-        graph = {
-            a: [],
-            b: [],
-            c: [a, b],
-            d: [],
-            e: [c, d],
-        }
-        dag = Dag(self.db, graph, self.pending_queue)
-        print('dag for file', file, 'created')
-        return dag
+    def create_dag(self, file: str) -> Dag:
+        return self.create_dag_func(file, self.db, self.pending_queue)
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
@@ -128,7 +117,7 @@ class AsyncWatcher:
             for file in files:
                 if file.dag_id is None:
                     print('dag for file', file.path, 'start creating...')
-                    dag = await self.create_dag(file.path)
+                    dag = self.create_dag(file.path)
                     await self.dags_pending_queue.put(dag)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag.id))
             await asyncio.sleep(constant.SLEEP_TIME)
@@ -160,7 +149,7 @@ class AsyncWatcher:
             print('canceling orphaned dag', dag.id)
             dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
 
-    async def main(self):
+    async def __call__(self):
         await self.cancel_orphaned()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
@@ -169,14 +158,3 @@ class AsyncWatcher:
             tg.create_task(self.handle_pending_dags())
             tg.create_task(self.handle_tasks())
             tg.create_task(self.handlers_dags())
-
-
-if __name__ == '__main__':
-    with get_db_cm() as db:
-        watch_path = 'static/records_tmp'
-        asyncio.run(
-            AsyncWatcher(
-                watch_path,
-                db=db,
-            ).main(),
-        )

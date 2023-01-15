@@ -1,7 +1,6 @@
 import contextlib
 
 from dagops.state.database import SessionLocal
-from dagops.state.database import engine
 
 
 def get_db():

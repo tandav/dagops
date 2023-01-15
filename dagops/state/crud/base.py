@@ -50,6 +50,8 @@ class CRUD:
         return db_obj
 
     def create_many(self, db: Session, objs: list[Base]) -> list[Base]:
+        if len(objs) == 0:
+            return []
         db_objs = [self.model(**obj.dict()) for obj in objs]
         db.add_all(db_objs)
         db.commit()
