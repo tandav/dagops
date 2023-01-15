@@ -385,6 +385,9 @@ async def logs(request: Request):
 
 @app.get('/logs/{task_id}.txt', response_class=FileResponse)
 async def log(task_id: str):
+    file = static_folder / 'logs' / f'{task_id}.txt'
+    if not file.exists():
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='log not found')
     return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
 
 
