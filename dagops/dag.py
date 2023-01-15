@@ -16,7 +16,7 @@ class Dag:
         db: Session,
         graph: dict[Task, set[Task]],
         pending_queue: asyncio.Queue[Task],
-        done_queue: asyncio.Queue[Task],
+        # done_queue: asyncio.Queue[Task],
         # running_tasks: set[Task],
     ) -> None:
         self.db = db
@@ -24,7 +24,7 @@ class Dag:
         self.graph = graphlib.TopologicalSorter(graph)
         self.graph.prepare()
         self.pending_queue = pending_queue
-        self.done_queue = done_queue
+        self.done_queue = asyncio.Queue()
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
