@@ -1,2 +1,2 @@
 # dagops
-simple dag/task runner backed by sqlite
+dag/task runner backed by sqlite
