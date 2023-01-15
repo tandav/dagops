@@ -6,8 +6,6 @@ from sqlalchemy.orm import Session
 from dagops.daemon import Daemon
 from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
-from dagops.state import schemas
-from dagops.state.crud.file import file_crud
 from dagops.task import ShellTask
 
 

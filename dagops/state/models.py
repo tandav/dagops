@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import DateTime
@@ -6,7 +8,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-import uuid
+
 from dagops.task_status import TaskStatus
 
 

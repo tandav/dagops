@@ -25,7 +25,5 @@ class TaskCRUD(CRUD):
         db.refresh(db_task)
         return db_task
 
-    
-
 
 task_crud = TaskCRUD(models.Task)
