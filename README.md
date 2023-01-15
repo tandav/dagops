@@ -1,2 +1,2 @@
 # dagops
-simple dag runner backed by redis
+simple dag runner backed by sqlite

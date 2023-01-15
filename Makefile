@@ -11,3 +11,7 @@ daemon:
 bumpver:
 	# usage: make bumpver PART=minor
 	bumpver update --no-fetch --$(PART)
+
+.PHONY: create_db
+create_db:
+	python -m dagops.state.database create

@@ -3,34 +3,5 @@
 {% block extra_css %}<link rel="stylesheet" href="/static/css/table.css"/>{% endblock %}
 {% block content %}
 <h1>tasks</h1>
-<table>
-<tr>
-<th>id</th>
-<th>status</th>
-<th>command</th>
-<th>env</th>
-<th>created_at</th>
-<th>started_at</th>
-<th>stopped_at</th>
-<th>duration</th>
-<th>returncode</th>
-<th>logs</th>
-</tr>
-<thead>
-</thead>
-{% for task in tasks %}
-    <tr>
-        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
-        <td><code>{{ task.status }}</code></td>
-        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
-        <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.env|truncate(20) }}</code></a></td>
-        <td><code>{{ task.created_at|format_time if 'created_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.started_at|format_time if 'started_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.stopped_at|format_time if 'stopped_at' in task else 'NONE'}}</code></td>
-        <td><code>{{ task.duration }}</code> seconds</td>
-        <td><code>{{ task.returncode }}</code></td>
-        <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
-    </tr>
-{% endfor %}
-</table>
+{% include 'tasks_table.j2' %}
 {% endblock %}

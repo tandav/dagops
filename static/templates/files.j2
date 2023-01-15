@@ -1,0 +1,26 @@
+{% extends 'base.j2' %}
+{% block title %}files{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="/static/css/table.css"/>{% endblock %}
+{% block content %}
+<h1>files</h1>
+<table>
+<tr>
+<th>id</th>
+<th>path</th>
+<th>dag_id</th>
+</tr>
+<thead>
+</thead>
+{% for file in files %}
+    <tr>
+        <td><a href="/files/{{ file.id }}"><code>{{ file.id|truncate(8, end='') }}</code></a></td>
+        <td><code>{{ file.path }}</code></td>
+        {% if file.dag_id is not none %}
+        <td><a href="/dags/{{ file.dag_id }}"><code>{{ file.dag_id|truncate(8, end='') }}</code></a></td>
+        {% else %}
+        <td><code>NONE</code></a></td>
+        {% endif %}
+    </tr>
+{% endfor %}
+</table>
+{% endblock %}
