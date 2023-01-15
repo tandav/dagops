@@ -1,6 +1,7 @@
 import abc
 import asyncio
 import datetime
+import os
 
 from sqlalchemy.orm import Session
 
@@ -41,7 +42,7 @@ class ShellTask(Task):
         self.stopped_at = None
         db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
         self.id = db_task.id
-        self.logs_fh = open(f'static/logs/{self.id}.txt', 'w')
+        self.logs_fh = open(f'{os.environ["LOGS_DIRECTORY"]}/{self.id}.txt', 'w')
         self.dag = None
 
     @property
