@@ -1,6 +1,4 @@
-static/*
-!static/templates
-!static/css
-!static/favicon.ico
+logs
+records_tmp
 *.ipynb
 *.sqlite

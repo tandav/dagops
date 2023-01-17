@@ -36,7 +36,7 @@ def create_dag(
 if __name__ == '__main__':
     with get_db_cm() as db:
         daemon = Daemon(
-            watch_path='static/records_tmp',
+            watch_path='records_tmp',
             db=db,
             create_dag_func=create_dag,
         )

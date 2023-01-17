@@ -1,7 +1,6 @@
 import os
 import sys
 
-import dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -16,6 +15,5 @@ def create_all():
 
 
 if __name__ == '__main__':
-    dotenv.load_dotenv()
     if len(sys.argv) == 2 and sys.argv[1] == 'create':
         create_all()

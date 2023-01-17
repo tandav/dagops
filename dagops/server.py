@@ -1,7 +1,7 @@
+import os
 from http import HTTPStatus
 from pathlib import Path
 
-import dotenv
 from fastapi import Depends
 from fastapi import FastAPI
 from fastapi import HTTPException
@@ -20,10 +20,7 @@ from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 
-dotenv.load_dotenv()
-
-
-static_folder = Path('static')
+static_folder = Path(__file__).parent / 'static'
 app = FastAPI()
 
 
@@ -385,10 +382,10 @@ async def logs(request: Request):
 
 @app.get('/logs/{task_id}.txt', response_class=FileResponse)
 async def log(task_id: str):
-    file = static_folder / 'logs' / f'{task_id}.txt'
+    file = Path(os.environ['LOGS_DIRECTORY']) / f'{task_id}.txt'
     if not file.exists():
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='log not found')
-    return FileResponse(static_folder / 'logs' / f'{task_id}.txt')
+    return FileResponse(file)
 
 
 @app.get('/tasks/{task_id}/{json_attr}.json')

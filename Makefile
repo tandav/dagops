@@ -1,5 +1,7 @@
 .PHONY: server
 server:
+	DB_URL=sqlite:///./dagops.sqlite \
+	LOGS_DIRECTORY=logs \
 	uvicorn dagops.server:app --host 0.0.0.0 --port 5002 --reload
 
 .PHONY: daemon
