@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from pathlib import Path
 from typing import Callable
 
 import aiofiles.os
@@ -21,7 +22,7 @@ class Daemon:
         db: Session,
         create_dag_func: Callable[[str, Session, asyncio.Queue], Dag],
     ):
-        self.watch_path = watch_path
+        self.watch_path = Path(watch_path)
         self.db = db
         self.create_dag_func = create_dag_func
         self.dags_pending_queue = asyncio.Queue(maxsize=32)
@@ -124,7 +125,7 @@ class Daemon:
 
     async def watch_directory(self):
         while True:
-            files = set(await aiofiles.os.listdir(self.watch_path))
+            files = {str(self.watch_path / p) for p in await aiofiles.os.listdir(self.watch_path)}
             stale_files_ids = set()
             up_to_date_files_paths = set()
             for file in file_crud.read_many(self.db):
