@@ -40,7 +40,7 @@ class ShellTask(Task):
         self.created_at = None
         self.started_at = None
         self.stopped_at = None
-        db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=env))
+        db_task = task_crud.create(self.db, schemas.TaskCreate(command=command, env=self.env))
         self.id = db_task.id
         self.logs_fh = open(f'{os.environ["LOGS_DIRECTORY"]}/{self.id}.txt', 'w')
         self.dag = None
