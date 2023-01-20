@@ -20,7 +20,7 @@ class Daemon:
         self,
         watch_path: str,
         db: Session,
-        create_dag_func: Callable[[str, Session, asyncio.Queue], Dag],
+        create_dag_func: Callable[[str, Session], Dag],
     ):
         self.watch_path = Path(watch_path)
         self.db = db
@@ -76,7 +76,7 @@ class Daemon:
                 continue
             while not self.dags_pending_queue.empty():
                 dag = await self.dags_pending_queue.get()
-                self.aiotask_to_dag[asyncio.create_task(dag.run())] = dag
+                self.aiotask_to_dag[asyncio.create_task(dag.run(self.pending_queue))] = dag
 
     async def handlers_dags(self):
         while True:
@@ -109,7 +109,7 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     def create_dag(self, file: str) -> Dag:
-        return self.create_dag_func(file, self.db, self.pending_queue)
+        return self.create_dag_func(file, self.db)
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""

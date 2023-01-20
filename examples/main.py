@@ -12,7 +12,6 @@ from dagops.task import ShellTask
 def create_dag(
     file: str,
     db: Session,
-    pending_queue: asyncio.Queue,
 ) -> Dag:
     print('dag for file', file, 'start creating...')
     command = sys.executable, '-u', 'write_to_mongo.py'
@@ -28,7 +27,7 @@ def create_dag(
         d: [],
         e: [c, d],
     }
-    dag = Dag(db, graph, pending_queue)
+    dag = Dag(db, graph)
     print('dag for file', file, 'created')
     return dag
 

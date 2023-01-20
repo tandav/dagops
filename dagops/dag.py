@@ -15,13 +15,12 @@ class Dag:
         self,
         db: Session,
         graph: dict[Task, set[Task]],
-        pending_queue: asyncio.Queue[Task],
     ) -> None:
         self.db = db
         self.tasks, self.id_graph = self.extract_tasks_and_id_graph(graph)
         self.graph = graphlib.TopologicalSorter(graph)
         self.graph.prepare()
-        self.pending_queue = pending_queue
+        self.pending_queue: asyncio.Queue | None = None
         self.done_queue = asyncio.Queue()
         self.created_at = None
         self.started_at = None
@@ -43,7 +42,8 @@ class Dag:
             id_graph[node.id] = [p.id for p in predecessors]
         return tasks, id_graph
 
-    async def run(self) -> None:
+    async def run(self, pending_queue: asyncio.Queue) -> None:
+        self.pending_queue = pending_queue
         self.started_at = datetime.datetime.now()
         dag_crud.update_by_id(
             self.db, self.id, schemas.DagUpdate(
