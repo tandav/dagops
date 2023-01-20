@@ -129,10 +129,10 @@ class Daemon:
             stale_files_ids = set()
             up_to_date_files_paths = set()
             for file in file_crud.read_many(self.db):
-                if file.path not in files:
-                    stale_files_ids.add(file.id)
-                else:
+                if file.path in files:
                     up_to_date_files_paths.add(file.path)
+                else:
+                    stale_files_ids.add(file.id)
             file_crud.delete_many_by_ids(self.db, stale_files_ids)
             file_crud.create_many(self.db, [schemas.FileCreate(path=file) for file in files - up_to_date_files_paths])
             await asyncio.sleep(constant.SLEEP_TIME)
