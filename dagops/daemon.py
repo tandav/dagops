@@ -109,7 +109,9 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     def create_dag(self, file: str) -> Dag:
-        return self.create_dag_func(file, self.db)
+        dag = self.create_dag_func(file, self.db)
+        print('dag for file', file, 'created')
+        return dag
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
