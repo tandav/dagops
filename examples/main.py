@@ -13,7 +13,6 @@ def create_dag(
     file: str,
     db: Session,
 ) -> Dag:
-    print('dag for file', file, 'start creating...')
     command = sys.executable, '-u', 'write_to_mongo.py'
     a = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'})
     b = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'})
@@ -28,7 +27,6 @@ def create_dag(
         e: [c, d],
     }
     dag = Dag(db, graph)
-    print('dag for file', file, 'created')
     return dag
 
 

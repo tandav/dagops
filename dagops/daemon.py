@@ -146,12 +146,6 @@ class Daemon:
             print('canceling orphaned task', task.id)
             task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
 
-        # dags
-        orphaned = dag_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
-        for dag in orphaned:
-            print('canceling orphaned dag', dag.id)
-            dag_crud.update_by_id(self.db, dag.id, schemas.DagUpdate(status=TaskStatus.CANCELED))
-
     async def __call__(self):
         await self.cancel_orphaned()
         async with asyncio.TaskGroup() as tg:

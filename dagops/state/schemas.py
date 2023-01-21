@@ -114,6 +114,8 @@ class DagCreate(BaseModel):
             for child in childs:
                 if not (0 <= child < n_task_payloads):
                     raise ValueError(f'child={child} of node={node} not in graph, n_task_payloads={n_task_payloads}')
+                if child not in graph:
+                    raise ValueError(f'child={child} of node={node } not in graph')
         return values
 
 
