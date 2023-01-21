@@ -237,17 +237,16 @@ def api_create_dag(
 # # ------------------------------------------------------------------------------
 
 
-# @app.get('/dags/', response_class=HTMLResponse)
-# async def read_dags(
-#     request: Request,
-#     db: Session = Depends(get_db),
-#     skip: int = 0,
-#     limit: int = 100,
-# ):
-#     dags = dag_crud.read_many(db, skip, limit)
-#     dags = [schemas.Dag(**dag.to_dict()) for dag in dags]
-#     dags = sorted(dags, key=lambda x: x.created_at, reverse=True)
-#     return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
+@app.get('/dags/', response_class=HTMLResponse)
+async def read_dags(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    db_objects = task_crud.read_by_field(db, 'dag_id', None)
+    db_objects = [x.to_dict() for x in db_objects]
+    db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
+    db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects, 'heading': 'dags'})
 
 
 # @app.get('/dags/{dag_id}', response_class=HTMLResponse)
