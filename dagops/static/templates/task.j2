@@ -25,11 +25,11 @@
     </tr>
     <tr>
         <td>command</td>
-        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.command|truncate(20) }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.payload.command|truncate(20) }}</code></a></td>
     </tr>
     <tr>
         <td>env</td>
-        <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.env|truncate(20) }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.payload.env|truncate(20) }}</code></a></td>
     </tr>
     <tr>
         <td>created_at</td>

@@ -14,15 +14,15 @@ class TaskCRUD(CRUD):
         db: Session,
         task: TaskCreate,
     ) -> models.Task:
+        now = datetime.datetime.now()
         task_dict = task.dict()
         upstream = self.read_by_field_isin(db, 'id', task_dict['upstream'], not_found_ok=False)
         task_dict['upstream'] = upstream
-        # task_dict['tasks'] = upstream
-        print(task_dict)
+        # print(task_dict)
         db_task = models.Task(
             **task_dict,
-            created_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now(),
+            created_at=now,
+            updated_at=now,
             status=TaskStatus.PENDING,
         )
 

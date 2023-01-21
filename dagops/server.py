@@ -16,7 +16,7 @@ from starlette.templating import Jinja2Templates
 from dagops import util
 from dagops.dependencies import get_db
 from dagops.state import schemas
-# from dagops.state.crud.dag import dag_crud
+from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 
@@ -54,7 +54,6 @@ def api_read_tasks(
     db: Session = Depends(get_db),
 ):
     db_objects = task_crud.read_many(db, skip, limit)
-    print('------->', db_objects)
     db_objects = [x.to_dict() for x in db_objects]
     return db_objects
 
@@ -81,6 +80,7 @@ def api_create_task(
     task: schemas.TaskCreate,
     db: Session = Depends(get_db),
 ):
+    print(task)
     db_obj = task_crud.create(db, task)
     return db_obj.to_dict()
 
@@ -151,18 +151,18 @@ async def read_task(
 # =============================================================================
 
 
-# @app.get(
-#     '/api/dags/',
-#     response_model=list[schemas.Dag],
-# )
-# def api_read_dags(
-#     skip: int = 0,
-#     limit: int = 100,
-#     db: Session = Depends(get_db),
-# ):
-#     db_objects = dag_crud.read_many(db, skip, limit)
-#     db_objects = [x.to_dict() for x in db_objects]
-#     return db_objects
+@app.get(
+    '/api/dags/',
+    response_model=list[schemas.Task],
+)
+def api_read_dags(
+    # skip: int = 0,
+    # limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = task_crud.read_by_field(db, 'dag_id', None)
+    db_objects = [x.to_dict() for x in db_objects]
+    return db_objects
 
 
 # @app.get(
@@ -180,17 +180,17 @@ async def read_task(
 #     return db_obj
 
 
-# @app.post(
-#     '/api/dags/',
-#     response_model=schemas.Dag,
-# )
-# def api_create_dag(
-#     dag: schemas.DagCreate,
-#     db: Session = Depends(get_db),
-# ):
-#     db_obj = dag_crud.create(db, dag)
-#     db_obj = db_obj.to_dict()
-#     return db_obj
+@app.post(
+    '/api/dags/',
+    response_model=schemas.Task,
+)
+def api_create_dag(
+    dag: schemas.DagCreate,
+    db: Session = Depends(get_db),
+):
+    db_obj = dag_crud.create(db, dag)
+    db_obj = db_obj.to_dict()
+    return db_obj
 
 
 # @app.patch(

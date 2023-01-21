@@ -1,4 +1,6 @@
 import datetime
+import random
+import uuid
 
 from pydantic import BaseModel
 from pydantic import root_validator
@@ -10,6 +12,8 @@ from dagops.task_status import TaskStatus
 
 
 class WithDuration(BaseModel):
+    created_at: datetime.datetime
+
     duration_seconds: float | None
 
     @root_validator
@@ -23,15 +27,40 @@ class WithDuration(BaseModel):
 # =============================================================================
 
 
-class TaskCreate(BaseModel):
-    upstream: list[str] = []
-    is_dag_head: bool = False
+class ShellTaskPayload(BaseModel):
     command: list[str]
     env: dict[str, str]
 
+    def __hash__(self):
+        # return hash((tuple(self.command), frozenset(self.env.items())))
+        return hash(random.random())
+
+
+TaskPayload = ShellTaskPayload
+
+
+class TaskCreate(BaseModel):
+    id: str | None = None
+    dag_id: str | None = None
+    upstream: list[str] = []
+    # dag_tasks: list[str] | None = None
+    # is_dag_head: bool = False
+    payload: TaskPayload | None = None
+
+    @root_validator()
+    def add_id(cls, values):
+        if values['id'] is None:
+            values['id'] = uuid.uuid4().hex
+        return values
+
+    # @root_validator
+    # def validate_dag_tasks(cls, values):
+    #     if values.get('is_dag_head') and values.get('dag_tasks') is None:
+    #         raise ValueError('dag_tasks must be set for dag head')
+    #     return values
+
 
 class Task(TaskCreate, WithDuration):
-    id: str
     dag_id: str | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
@@ -53,7 +82,7 @@ class TaskUpdate(BaseModel):
 # =============================================================================
 
 class DagCreate(BaseModel):
-    graph: dict[str, list[str]]
+    graph: dict[TaskPayload, list[TaskPayload]]
 
     @validator('graph')
     def validate_graph(cls, v):
@@ -64,24 +93,24 @@ class DagCreate(BaseModel):
         return v
 
 
-class Dag(WithDuration):
-    id: str
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    started_at: datetime.datetime | None
-    stopped_at: datetime.datetime | None
-    status: TaskStatus
-    graph: dict[str, list[str]]
-    tasks: list[str]
+# class Dag(WithDuration):
+#     id: str
+#     created_at: datetime.datetime
+#     updated_at: datetime.datetime
+#     started_at: datetime.datetime | None
+#     stopped_at: datetime.datetime | None
+#     status: TaskStatus
+#     graph: dict[str, list[str]]
+#     tasks: list[str]
 
-    class Config:
-        orm_mode = True
+#     class Config:
+#         orm_mode = True
 
 
-class DagUpdate(BaseModel):
-    started_at: datetime.datetime | None
-    stopped_at: datetime.datetime | None
-    status: TaskStatus | None
+# class DagUpdate(BaseModel):
+#     started_at: datetime.datetime | None
+#     stopped_at: datetime.datetime | None
+#     status: TaskStatus | None
 
 
 # =============================================================================

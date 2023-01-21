@@ -1,49 +1,75 @@
-# import datetime
+import graphlib
+import uuid
 
-# from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 
-# from dagops.state import models
-# from dagops.state.crud.base import CRUD
-# from dagops.state.crud.task import task_crud
-# from dagops.state.schemas import DagCreate
-# from dagops.task_status import TaskStatus
+from dagops.state import models
+from dagops.state import schemas
+from dagops.state.crud.base import CRUD
+from dagops.state.crud.task import task_crud
+from dagops.state.schemas import DagCreate
+from dagops.task_status import TaskStatus
 
 
 # class DagCRUD(CRUD):
-#     def create(
-#         self,
-#         db: Session,
-#         dag: DagCreate,
-#     ) -> models.Dag:
+class DagCRUD:
+    def create(
+        self,
+        db: Session,
+        dag: DagCreate,
+    ) -> models.Task:
 
-#         tasks = dag.graph.keys()
-#         tasks = task_crud.read_by_field_isin(db, 'id', tasks)
+        head_task_id = uuid.uuid4().hex
 
-#         if {task.id for task in tasks} != dag.graph.keys():
-#             raise ValueError('Tasks in graph do not match tasks in database')
+        task_payload_to_db_task = {}
+        for task_payload in graphlib.TopologicalSorter(dag.graph).static_order():
+            task_create = schemas.TaskCreate(
+                **task_payload.dict(),
+                upstream=[task_payload_to_db_task[td].id for td in dag.graph[task_payload]],
+                dag_id=head_task_id,
+            )
+            db_task = task_crud.create(db, task_create)
+            db.add(db_task)
+            task_payload_to_db_task[task_payload] = db_task
 
-#         if any(task.status != TaskStatus.PENDING for task in tasks):
-#             raise ValueError('Tasks in graph are not all pending')
+        head_task_create = schemas.TaskCreate(
+            upstream=task_payload_to_db_task.values(),
+        )
+        head_task = task_crud.create(db, head_task_create)
+        db.add(head_task)
+        db.commit()
+        db.refresh(head_task)
+        return head_task
 
-#         if any(task.dag_id is not None for task in tasks):
-#             raise ValueError('Tasks in graph must all have dag_id=None')
+        # tasks = [task_crud.read_by_id(db, task_id) for task_id in graph_sorted]
 
-#         db_dag = models.Dag(
-#             **dag.dict(),
-#             tasks=tasks,
-#             created_at=datetime.datetime.now(),
-#             updated_at=datetime.datetime.now(),
-#             status=TaskStatus.PENDING,
-#         )
-#         db.add(db_dag)
-#         db.commit()
-#         db.refresh(db_dag)
+        # tasks = dag.graph.keys()
+        # tasks = task_crud.read_by_field_isin(db, 'id', tasks)
 
-#         for task in tasks:
-#             task.dag_id = db_dag.id
-#         db.commit()
+        # if {task.id for task in tasks} != dag.graph.keys():
+        #     raise ValueError('Tasks in graph do not match tasks in database')
 
-#         return db_dag
+        # if any(task.status != TaskStatus.PENDING for task in tasks):
+        #     raise ValueError('Tasks in graph are not all pending')
 
+        # if any(task.dag_id is not None for task in tasks):
+        #     raise ValueError('Tasks in graph must all have dag_id=None')
 
+        # db_dag = models.Dag(
+        #     **dag.dict(),
+        #     tasks=tasks,
+        #     created_at=datetime.datetime.now(),
+        #     updated_at=datetime.datetime.now(),
+        #     status=TaskStatus.PENDING,
+        # )
+        # db.add(db_dag)
+        # db.commit()
+        # db.refresh(db_dag)
+
+        # for task in tasks:
+        #     task.dag_id = db_dag.id
+        # db.commit()
+
+        # return db_dag
 # dag_crud = DagCRUD(models.Dag)
+dag_crud = DagCRUD()

@@ -42,20 +42,22 @@ task_to_upstream_tasks = Table(
 class Task(Base):
     __tablename__ = 'task'
 
-    id = Column(String, primary_key=True, default=uuid_gen)
-    is_dag_head = Column(Boolean, nullable=False)
+    # id = Column(String, primary_key=True, default=uuid_gen)
+    id = Column(String, primary_key=True)
+    # is_dag_head = Column(Boolean, nullable=False)
 
     dag_id = Column(String, ForeignKey('task.id'), nullable=True)
-    dag = relationship('Task', back_populates='tasks')
-    tasks = relationship('Task', back_populates='dag', remote_side=[id])
+    # dag = relationship('Task', back_populates='dag_tasks')
+    # dag_tasks = relationship('Task', back_populates='dag', remote_side=[id])
 
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
     started_at = Column(DateTime, nullable=True)
     stopped_at = Column(DateTime, nullable=True)
     status = Column(Enum(TaskStatus), nullable=False)
-    command = Column(JSON, nullable=False)
-    env = Column(JSON, nullable=False)
+    # command = Column(JSON, nullable=False)
+    # env = Column(JSON, nullable=False)
+    payload = Column(JSON, nullable=True)
     upstream = relationship(
         'Task',
         secondary=task_to_upstream_tasks,
@@ -74,16 +76,18 @@ class Task(Base):
     def to_dict(self):
         return {
             'id': self.id,
-            'dag_id': self.dag_id,
+            # 'dag_id': self.dag_id,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'started_at': self.started_at,
             'stopped_at': self.stopped_at,
             'status': self.status,
-            'command': self.command,
-            'env': self.env,
+            # 'command': self.command,
+            # 'env': self.env,
+            'payload': self.payload,
             'upstream': [task.id for task in self.upstream],
             'downstream': [task.id for task in self.downstream],
+            # 'dag_tasks': [task.id for task in self.dag_tasks],
         }
 
 
