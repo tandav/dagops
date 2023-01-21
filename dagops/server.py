@@ -80,7 +80,6 @@ def api_create_task(
     task: schemas.TaskCreate,
     db: Session = Depends(get_db),
 ):
-    print(task)
     db_obj = task_crud.create(db, task)
     return db_obj.to_dict()
 
@@ -124,18 +123,20 @@ def api_delete_all_tasks(
 
 # ------------------------------------------------------------------------------
 
-
+    
 @app.get('/tasks/', response_class=HTMLResponse)
-async def tasks(
+async def read_tasks(
     request: Request,
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
 ):
-    tasks = task_crud.read_many(db, skip, limit)
-    tasks = [schemas.Task.from_orm(task) for task in tasks]
-    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+    db_objects = task_crud.read_many(db, skip, limit)
+    db_objects = [db_obj.to_dict() for db_obj in db_objects]
+    # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
+    db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
+    db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects})
 
 
 @app.get('/tasks/{task_id}', response_class=HTMLResponse)
@@ -145,7 +146,9 @@ async def read_task(
     db: Session = Depends(get_db),
 ):
     task = task_crud.read_by_id(db, task_id)
-    task = schemas.Task.from_orm(task)
+    # task = schemas.Task.from_orm(task)
+    task = schemas.Task(**task.to_dict())
+    print(task)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================

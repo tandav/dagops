@@ -21,19 +21,21 @@ class DagCRUD:
 
         head_task_id = uuid.uuid4().hex
 
-        task_payload_to_db_task = {}
-        for task_payload in graphlib.TopologicalSorter(dag.graph).static_order():
+        task_payload_id_to_db_task = {}
+        for task_payload_id in graphlib.TopologicalSorter(dag.graph).static_order():
+            task_payload = dag.task_payloads[task_payload_id]
             task_create = schemas.TaskCreate(
-                **task_payload.dict(),
-                upstream=[task_payload_to_db_task[td].id for td in dag.graph[task_payload]],
+                task_type=dag.task_type,
+                payload=task_payload,
+                upstream=[task_payload_id_to_db_task[td].id for td in dag.graph[task_payload_id]],
                 dag_id=head_task_id,
             )
             db_task = task_crud.create(db, task_create)
             db.add(db_task)
-            task_payload_to_db_task[task_payload] = db_task
+            task_payload_id_to_db_task[task_payload_id] = db_task
 
         head_task_create = schemas.TaskCreate(
-            upstream=task_payload_to_db_task.values(),
+            upstream=[task.id for task in task_payload_id_to_db_task.values()],
         )
         head_task = task_crud.create(db, head_task_create)
         db.add(head_task)

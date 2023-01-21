@@ -45,7 +45,7 @@ class Task(Base):
     # id = Column(String, primary_key=True, default=uuid_gen)
     id = Column(String, primary_key=True)
     # is_dag_head = Column(Boolean, nullable=False)
-
+    task_type = Column(String, nullable=True)
     dag_id = Column(String, ForeignKey('task.id'), nullable=True)
     # dag = relationship('Task', back_populates='dag_tasks')
     # dag_tasks = relationship('Task', back_populates='dag', remote_side=[id])
@@ -76,6 +76,7 @@ class Task(Base):
     def to_dict(self):
         return {
             'id': self.id,
+            'task_type': self.task_type,
             # 'dag_id': self.dag_id,
             'created_at': self.created_at,
             'updated_at': self.updated_at,

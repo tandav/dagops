@@ -1,6 +1,7 @@
 import datetime
 import random
 import uuid
+import enum
 
 from pydantic import BaseModel
 from pydantic import root_validator
@@ -32,11 +33,12 @@ class ShellTaskPayload(BaseModel):
     env: dict[str, str]
 
     def __hash__(self):
-        # return hash((tuple(self.command), frozenset(self.env.items())))
-        return hash(random.random())
+        return hash((tuple(self.command), frozenset(self.env.items())))
 
 
-TaskPayload = ShellTaskPayload
+TASK_TYPE_TO_PAYLOAD_SCHEMA = {
+    'shell': ShellTaskPayload,
+}
 
 
 class TaskCreate(BaseModel):
@@ -45,7 +47,22 @@ class TaskCreate(BaseModel):
     upstream: list[str] = []
     # dag_tasks: list[str] | None = None
     # is_dag_head: bool = False
-    payload: TaskPayload | None = None
+    task_type: str | None = None
+    payload: dict | None = None
+
+    @root_validator(pre=True)
+    def validate_task_type_and_payload(cls, values):
+        if 'task_type' not in values or values['task_type'] is None:
+            return values
+            # raise ValueError('task_type must be set')
+        if 'payload' not in values:
+            raise ValueError('payload must be set')
+        task_type = values['task_type']
+        if task_type not in TASK_TYPE_TO_PAYLOAD_SCHEMA:
+            raise ValueError(f'unsupported task type {task_type}')
+        payload_schema = TASK_TYPE_TO_PAYLOAD_SCHEMA[task_type]
+        payload_schema.validate(values['payload'])
+        return values
 
     @root_validator()
     def add_id(cls, values):
@@ -81,16 +98,23 @@ class TaskUpdate(BaseModel):
 
 # =============================================================================
 
-class DagCreate(BaseModel):
-    graph: dict[TaskPayload, list[TaskPayload]]
 
-    @validator('graph')
-    def validate_graph(cls, v):
-        for node, childs in v.items():
+class DagCreate(BaseModel):
+    task_type: str | None = None
+    task_payloads: list[dict]
+    graph: dict[int, list[int]]
+
+    @root_validator
+    def validate_graph(cls, values):
+        graph = values['graph']
+        n_task_payloads = len(values['task_payloads'])
+        for node, childs in graph.items():
+            if not (0 <= node < n_task_payloads):
+                raise ValueError(f'node={node} not in graph, n_task_payloads={n_task_payloads}')
             for child in childs:
-                if child not in v:
-                    raise ValueError(f'child={child} of node={node } not in graph')
-        return v
+                if not (0 <= child < n_task_payloads):
+                    raise ValueError(f'child={child} of node={node} not in graph, n_task_payloads={n_task_payloads}')
+        return values
 
 
 # class Dag(WithDuration):
