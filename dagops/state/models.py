@@ -77,7 +77,7 @@ class Task(Base):
         return {
             'id': self.id,
             'task_type': self.task_type,
-            # 'dag_id': self.dag_id,
+            'dag_id': self.dag_id,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'started_at': self.started_at,

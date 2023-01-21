@@ -123,7 +123,7 @@ def api_delete_all_tasks(
 
 # ------------------------------------------------------------------------------
 
-    
+
 @app.get('/tasks/', response_class=HTMLResponse)
 async def read_tasks(
     request: Request,
@@ -148,7 +148,7 @@ async def read_task(
     task = task_crud.read_by_id(db, task_id)
     # task = schemas.Task.from_orm(task)
     task = schemas.Task(**task.to_dict())
-    print(task)
+    print('**********', task)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================

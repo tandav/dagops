@@ -20,16 +20,11 @@
         <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id }}</code></a></td>
     </tr>
     <tr>
+        <td>task_type</td>
+        <td>{{ task.task_type }}</td>
+    <tr>
         <td>status</td>
         <td><code>{{ task.status }}</code></td>
-    </tr>
-    <tr>
-        <td>command</td>
-        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.payload.command|truncate(20) }}</code></a></td>
-    </tr>
-    <tr>
-        <td>env</td>
-        <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.payload.env|truncate(20) }}</code></a></td>
     </tr>
     <tr>
         <td>created_at</td>
@@ -52,10 +47,6 @@
         <td><code>{{ task.duration_seconds|round(1) if task.duration_seconds is not none else 'NULL' }}</code></td>
     </tr>
     <tr>
-        <td>upstream</td>
-        <td>{{ task.upstream }}</td>
-    </tr>
-    <tr>
         <td>logs</td>
         <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
     </tr>
@@ -64,6 +55,7 @@
 
 
 <h2>task payload</h2>
+{% if task.payload %}
 <table>
 <thead>
     <tr>
@@ -72,16 +64,49 @@
     </tr>
 </thead>
 <tbody>
-    {% for key, value in task.payload.dict().items() %}
+    {% for key, value in task.payload.items() %}
     <tr>
         <td>{{ key }}</td>
-        <td>{{ value }}</td>
+        <td><a href="/tasks/{{ task.id }}/{{ key }}.json"><code>{{ value }}</code></a></td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+{% else %}
+<p>no payload</p>
+{% endif %}
+
+<h2>upstream tasks</h2>
+<table>
+<thead>
+    <tr>
+        <th>task_id</th>
+    </tr>
+</thead>
+<tbody>
+    {% for task_id in task.upstream %}
+    <tr>
+        <td><a href="/tasks/{{ task_id }}"><code>{{ task_id }}</code></a></td>
     </tr>
     {% endfor %}
 </tbody>
 </table>
 
-<h2>upstream tasks</h2>
+
 <h2>downstream tasks</h2>
+<table>
+<thead>
+    <tr>
+        <th>task_id</th>
+    </tr>
+</thead>
+<tbody>
+    {% for task_id in task.downstream %}
+    <tr>
+        <td><a href="/tasks/{{ task_id }}"><code>{{ task_id }}</code></a></td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
 
 {% endblock %}
