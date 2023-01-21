@@ -24,6 +24,8 @@ class WithDuration(BaseModel):
 
 
 class TaskCreate(BaseModel):
+    upstream: list[str] = []
+    is_dag_head: bool = False
     command: list[str]
     env: dict[str, str]
 
@@ -36,6 +38,7 @@ class Task(TaskCreate, WithDuration):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus
+    downstream: list[str] = []
 
     class Config:
         orm_mode = True
