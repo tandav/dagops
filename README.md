@@ -1,7 +1,7 @@
 ![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/tandav/dagops)
 
 # dagops
-dag/task runner backed by sqlite
+dag/task runner
 
 
 ## install
