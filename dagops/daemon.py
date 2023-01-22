@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -12,8 +13,8 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.task_status import TaskStatus
 from dagops.task import Task
+from dagops.task_status import TaskStatus
 
 
 class Daemon:
@@ -30,6 +31,90 @@ class Daemon:
         self.pending_queue = asyncio.Queue(maxsize=32)
         self.aiotask_to_dag = {}
         self.aiotask_to_task = {}
+        self.aiotask_to_task_id = {}
+
+    async def handle_tasks_new(self):
+        while True:
+            for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
+                all_upstream_success = True
+                for u in task.upstream:
+                    if u.status == TaskStatus.SUCCESS:
+                        continue
+                    all_upstream_success = False
+                    if u.status == TaskStatus.FAILED:
+                        task_crud.update_by_id(
+                            self.db,
+                            task.id,
+                            schemas.TaskUpdate(
+                                status=TaskStatus.FAILED,
+                                updated_at=datetime.datetime.now(),
+                            ),
+                        )
+                        break
+                if all_upstream_success:
+                    now = datetime.datetime.now()
+                    if task.task_type == 'dag':
+                        task_crud.update_by_id(
+                            self.db,
+                            task.id,
+                            schemas.TaskUpdate(
+                                status=TaskStatus.SUCCESS,
+                                updated_at=now,
+                                started_at=now,
+                            ),
+                        )
+                    elif task.task_type == 'shell':
+                        task_crud.update_by_id(
+                            self.db,
+                            task.id,
+                            schemas.TaskUpdate(
+                                status=TaskStatus.RUNNING,
+                                updated_at=now,
+                                started_at=now,
+                            ),
+                        )
+                        self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
+                    else:
+                        raise NotImplementedError(f'unsupported task_type {task.task_type}')
+
+            if not self.aiotask_to_task_id:
+                await asyncio.sleep(constant.SLEEP_TIME)
+                continue
+
+            done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
+            for aiotask in done:
+                p = aiotask.result()
+                assert p.returncode is not None
+                status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
+
+                task_id = self.aiotask_to_task_id[aiotask]
+                stopped_at = datetime.datetime.now()
+
+                task_crud.update_by_id(
+                    self.db,
+                    task_id,
+                    schemas.TaskUpdate(
+                        status=status,
+                        stopped_at=stopped_at,
+                        updated_at=stopped_at,
+                        returncode=p.returncode,
+                    ),
+                )
+                del self.aiotask_to_task_id[aiotask]
+                # await task.dag.done_queue.put(task)
+                print('EXITING TASK', task_id, status)
+            await asyncio.sleep(constant.SLEEP_TIME)
+
+    async def run_tasks(self, task):
+        with open(f'{os.environ["LOGS_DIRECTORY"]}/{task.id}.txt', 'w') as logs_fh:
+            p = await asyncio.create_subprocess_exec(
+                *task.payload['command'],
+                env=task.payload['env'],
+                stdout=logs_fh,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            await p.communicate()
+            return p
 
     async def handle_pending_tasks(self):
         while True:
@@ -172,14 +257,22 @@ class Daemon:
         orphaned = task_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
         for task in orphaned:
             print('canceling orphaned task', task.id)
-            task_crud.update_by_id(self.db, task.id, schemas.TaskUpdate(status=TaskStatus.CANCELED))
+            now = datetime.datetime.now()
+            task_crud.update_by_id(
+                self.db, task.id, schemas.TaskUpdate(
+                    status=TaskStatus.CANCELED,
+                    stopped_at=now,
+                    updated_at=now,
+                ),
+            )
 
     async def __call__(self):
         await self.cancel_orphaned()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.watch_directory())
             tg.create_task(self.update_files_dags())
-            tg.create_task(self.handle_pending_tasks())
-            tg.create_task(self.handle_pending_dags())
-            tg.create_task(self.handle_tasks())
-            tg.create_task(self.handlers_dags())
+            tg.create_task(self.handle_tasks_new())
+            # tg.create_task(self.handle_pending_tasks())
+            # tg.create_task(self.handle_pending_dags())
+            # tg.create_task(self.handle_tasks())
+            # tg.create_task(self.handlers_dags())

@@ -35,6 +35,7 @@ class DagCRUD:
             task_payload_id_to_db_task[task_payload_id] = db_task
 
         head_task_create = schemas.TaskCreate(
+            task_type='dag',
             id=head_task_id,
             upstream=[task.id for task in task_payload_id_to_db_task.values()],
         )

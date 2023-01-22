@@ -1,7 +1,5 @@
 import datetime
-import random
 import uuid
-import enum
 
 from pydantic import BaseModel
 from pydantic import root_validator
@@ -35,10 +33,12 @@ class ShellTaskPayload(BaseModel):
     def __hash__(self):
         return hash((tuple(self.command), frozenset(self.env.items())))
 
+
 PayloadDag = dict[ShellTaskPayload, list[ShellTaskPayload]]
 
 TASK_TYPE_TO_PAYLOAD_SCHEMA = {
     'shell': ShellTaskPayload,
+    'dag': None,
 }
 
 
@@ -56,12 +56,14 @@ class TaskCreate(BaseModel):
         if 'task_type' not in values or values['task_type'] is None:
             return values
             # raise ValueError('task_type must be set')
-        if 'payload' not in values:
-            raise ValueError('payload must be set')
         task_type = values['task_type']
+        payload_schema = TASK_TYPE_TO_PAYLOAD_SCHEMA[task_type]
+        if payload_schema is None:
+            return values
+        if 'payload' not in values:
+            raise ValueError('payload must be set for task_type {task_type}')
         if task_type not in TASK_TYPE_TO_PAYLOAD_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
-        payload_schema = TASK_TYPE_TO_PAYLOAD_SCHEMA[task_type]
         payload_schema.validate(values['payload'])
         return values
 
@@ -94,6 +96,7 @@ class Task(TaskCreate, WithDuration):
 class TaskUpdate(BaseModel):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
+    updated_at: datetime.datetime
     status: TaskStatus | None
 
 
