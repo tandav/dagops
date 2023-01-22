@@ -2,6 +2,7 @@ from typing import Type
 
 from sqlalchemy.orm import Session
 
+from dagops.state.crud import exceptions
 from dagops.state.models import Base
 
 
@@ -27,10 +28,23 @@ class CRUD:
         db: Session,
         field: str,
         values: list[str],
+        not_found_ok: bool = True,
     ) -> list[Base]:
+        if len(values) == 0:
+            return []
         query = db.query(self.model)
         query = query.filter(getattr(self.model, field).in_(values))
-        return query.all()
+        db_objs = query.all()
+        if not_found_ok:
+            return db_objs
+        if len(db_objs) != len(values):
+            raise exceptions.HttpNotFound(
+                f'Not all {field}s found in database: {values}',
+            )
+        return db_objs
+        # query = db.query(self.model)
+        # query = query.filter(getattr(self.model, field).in_(values))
+        # return query.all()
 
     def read_by_field(
         self,
@@ -62,7 +76,7 @@ class CRUD:
     def update_by_id(self, db: Session, id: int, obj: Base) -> Base:
         db_obj = self.read_by_id(db, id)
         if db_obj is None:
-            return None
+            raise exceptions.HttpNotFound(f'No {self.model.__name__} with id {id} found')
         for key, value in obj.dict(exclude_unset=True).items():
             setattr(db_obj, key, value)
         db.add(db_obj)

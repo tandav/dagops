@@ -19,6 +19,7 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
+from dagops.state.crud.worker import worker_crud
 
 static_folder = Path(__file__).parent / 'static'
 app = FastAPI()
@@ -54,6 +55,7 @@ def api_read_tasks(
     db: Session = Depends(get_db),
 ):
     db_objects = task_crud.read_many(db, skip, limit)
+    db_objects = [x.to_dict() for x in db_objects]
     return db_objects
 
 
@@ -68,7 +70,7 @@ def api_read_task(
     db_obj = task_crud.read_by_id(db, task_id)
     if db_obj is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
-    return db_obj
+    return db_obj.to_dict()
 
 
 @app.post(
@@ -80,7 +82,7 @@ def api_create_task(
     db: Session = Depends(get_db),
 ):
     db_obj = task_crud.create(db, task)
-    return db_obj
+    return db_obj.to_dict()
 
 
 @app.patch(
@@ -124,16 +126,18 @@ def api_delete_all_tasks(
 
 
 @app.get('/tasks/', response_class=HTMLResponse)
-async def tasks(
+async def read_tasks(
     request: Request,
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
 ):
-    tasks = task_crud.read_many(db, skip, limit)
-    tasks = [schemas.Task.from_orm(task) for task in tasks]
-    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': tasks})
+    db_objects = task_crud.read_many(db, skip, limit)
+    db_objects = [db_obj.to_dict() for db_obj in db_objects]
+    # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
+    db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
+    db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects})
 
 
 @app.get('/tasks/{task_id}', response_class=HTMLResponse)
@@ -143,7 +147,8 @@ async def read_task(
     db: Session = Depends(get_db),
 ):
     task = task_crud.read_by_id(db, task_id)
-    task = schemas.Task.from_orm(task)
+    # task = schemas.Task.from_orm(task)
+    task = schemas.Task(**task.to_dict())
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================
@@ -151,36 +156,36 @@ async def read_task(
 
 @app.get(
     '/api/dags/',
-    response_model=list[schemas.Dag],
+    response_model=list[schemas.Task],
 )
 def api_read_dags(
-    skip: int = 0,
-    limit: int = 100,
+    # skip: int = 0,
+    # limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_objects = dag_crud.read_many(db, skip, limit)
+    db_objects = task_crud.read_by_field(db, 'dag_id', None)
     db_objects = [x.to_dict() for x in db_objects]
     return db_objects
 
 
-@app.get(
-    '/api/dags/{dag_id}',
-    response_model=schemas.Dag,
-)
-def api_read_dag(
-    dag_id: str,
-    db: Session = Depends(get_db),
-):
-    db_obj = dag_crud.read_by_id(db, dag_id)
-    if db_obj is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-    db_obj = db_obj.to_dict()
-    return db_obj
+# @app.get(
+#     '/api/dags/{dag_id}',
+#     response_model=schemas.Dag,
+# )
+# def api_read_dag(
+#     dag_id: str,
+#     db: Session = Depends(get_db),
+# ):
+#     db_obj = dag_crud.read_by_id(db, dag_id)
+#     if db_obj is None:
+#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+#     db_obj = db_obj.to_dict()
+#     return db_obj
 
 
 @app.post(
     '/api/dags/',
-    response_model=schemas.Dag,
+    response_model=schemas.Task,
 )
 def api_create_dag(
     dag: schemas.DagCreate,
@@ -191,75 +196,74 @@ def api_create_dag(
     return db_obj
 
 
-@app.patch(
-    '/api/dags/{dag_id}',
-)
-def api_update_dag(
-    dag_id: str,
-    dag: schemas.DagUpdate,
-    db: Session = Depends(get_db),
-):
-    db_obj = dag_crud.update_by_id(db, dag_id, dag)
-    if db_obj is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-    db_obj = db_obj.to_dict()
-    return db_obj
+# @app.patch(
+#     '/api/dags/{dag_id}',
+# )
+# def api_update_dag(
+#     dag_id: str,
+#     dag: schemas.DagUpdate,
+#     db: Session = Depends(get_db),
+# ):
+#     db_obj = dag_crud.update_by_id(db, dag_id, dag)
+#     if db_obj is None:
+#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+#     db_obj = db_obj.to_dict()
+#     return db_obj
 
 
-@app.delete(
-    '/api/dags/{dag_id}',
-)
-def api_delete_dag(
-    dag_id: str,
-    db: Session = Depends(get_db),
-):
-    db_obj = dag_crud.delete_by_id(db, dag_id)
-    if db_obj is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-    db_obj = db_obj.to_dict()
-    return db_obj
+# @app.delete(
+#     '/api/dags/{dag_id}',
+# )
+# def api_delete_dag(
+#     dag_id: str,
+#     db: Session = Depends(get_db),
+# ):
+#     db_obj = dag_crud.delete_by_id(db, dag_id)
+#     if db_obj is None:
+#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+#     db_obj = db_obj.to_dict()
+#     return db_obj
 
 
-@app.delete(
-    '/api/dags/',
-)
-def api_delete_all_dags(
-    db: Session = Depends(get_db),
-):
-    db_objs = dag_crud.delete_all(db)
-    return db_objs
+# @app.delete(
+#     '/api/dags/',
+# )
+# def api_delete_all_dags(
+#     db: Session = Depends(get_db),
+# ):
+#     db_objs = dag_crud.delete_all(db)
+#     return db_objs
 
-# ------------------------------------------------------------------------------
+# # ------------------------------------------------------------------------------
 
 
 @app.get('/dags/', response_class=HTMLResponse)
 async def read_dags(
     request: Request,
     db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
 ):
-    dags = dag_crud.read_many(db, skip, limit)
-    dags = [schemas.Dag(**dag.to_dict()) for dag in dags]
-    dags = sorted(dags, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('dags.j2', {'request': request, 'dags': dags})
+    db_objects = task_crud.read_by_field(db, 'dag_id', None)
+    db_objects = [x.to_dict() for x in db_objects]
+    db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
+    db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects, 'heading': 'dags'})
 
 
-@app.get('/dags/{dag_id}', response_class=HTMLResponse)
-async def dag(
-    dag_id: str,
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    dag = dag_crud.read_by_id(db, dag_id)
-    if dag is None:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-    dag = dag.to_dict()
-    dag = schemas.Dag(**dag)
-    tasks = task_crud.read_by_field_isin(db, 'id', dag.tasks)
-    tasks = [schemas.Task.from_orm(task) for task in tasks]
-    tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag, 'tasks': tasks})
+# @app.get('/dags/{dag_id}', response_class=HTMLResponse)
+# async def dag(
+#     dag_id: str,
+#     request: Request,
+#     db: Session = Depends(get_db),
+# ):
+#     dag = dag_crud.read_by_id(db, dag_id)
+#     if dag is None:
+#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
+#     dag = dag.to_dict()
+#     dag = schemas.Dag(**dag)
+#     tasks = task_crud.read_by_field_isin(db, 'id', dag.tasks)
+#     tasks = [schemas.Task.from_orm(task) for task in tasks]
+#     tasks = sorted(tasks, key=lambda x: x.created_at, reverse=True)
+#     return templates.TemplateResponse('dag.j2', {'request': request, 'dag': dag, 'tasks': tasks})
 
 
 # =============================================================================
@@ -371,6 +375,62 @@ def read_file(
 
 # =============================================================================
 
+@app.get(
+    '/api/workers/',
+    response_model=list[schemas.Worker],
+)
+def api_read_workers(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = worker_crud.read_many(db, skip, limit)
+    return db_objects
+
+
+@app.get(
+    '/api/workers/{worker_id}',
+    response_model=schemas.Worker,
+)
+def api_read_worker(
+    worker_id: str,
+    db: Session = Depends(get_db),
+):
+    db_obj = worker_crud.read_by_id(db, worker_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='worker not found')
+    return db_obj.to_dict()
+
+
+# ------------------------------------------------------------------------------
+
+@app.get(
+    '/workers/',
+    response_class=HTMLResponse,
+)
+def read_workers(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = worker_crud.read_many(db, skip, limit)
+    return templates.TemplateResponse('workers.j2', {'request': request, 'workers': db_objects})
+
+
+@app.get('/workers/{worker_id}', response_class=HTMLResponse)
+async def read_worker(
+    worker_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    db_obj = worker_crud.read_by_id(db, worker_id)
+    obj = schemas.Worker(**db_obj.to_dict())
+    return templates.TemplateResponse('worker.j2', {'request': request, 'worker': obj})
+
+
+# =============================================================================
+
 
 @app.get('/logs/', response_class=HTMLResponse)
 async def logs(request: Request):
@@ -398,11 +458,11 @@ async def task_json_attr(
     return getattr(task, json_attr)
 
 
-@app.get('/dags/{dag_id}/{json_attr}.json')
-async def dag_json_attr(
-    dag_id: str,
-    json_attr: str,
-    db: Session = Depends(get_db),
-):
-    dag = dag_crud.read_by_id(db, dag_id)
-    return getattr(dag, json_attr)
+# @app.get('/dags/{dag_id}/{json_attr}.json')
+# async def dag_json_attr(
+#     dag_id: str,
+#     json_attr: str,
+#     db: Session = Depends(get_db),
+# ):
+#     dag = dag_crud.read_by_id(db, dag_id)
+#     return getattr(dag, json_attr)

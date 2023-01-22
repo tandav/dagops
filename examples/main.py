@@ -1,25 +1,21 @@
 import asyncio
 import sys
 
-from sqlalchemy.orm import Session
-
 from dagops.daemon import Daemon
-from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
-from dagops.task import ShellTask
+from dagops.state.schemas import InputDataDag
+from dagops.state.schemas import ShellTaskInputData
 
 
 def create_dag(
     file: str,
-    db: Session,
-) -> Dag:
-    print('dag for file', file, 'start creating...')
-    command = sys.executable, '-u', 'write_to_mongo.py'
-    a = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'})
-    b = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'})
-    c = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'})
-    d = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'})
-    e = ShellTask(db, command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'})
+) -> InputDataDag:
+    command = sys.executable, '-u', 'examples/write_to_mongo.py'
+    a = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'}, worker_name='cpu')
+    b = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'}, worker_name='cpu')
+    c = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'}, worker_name='cpu')
+    d = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'}, worker_name='cpu')
+    e = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'}, worker_name='cpu')
     graph = {
         a: [],
         b: [],
@@ -27,9 +23,7 @@ def create_dag(
         d: [],
         e: [c, d],
     }
-    dag = Dag(db, graph)
-    print('dag for file', file, 'created')
-    return dag
+    return graph
 
 
 if __name__ == '__main__':

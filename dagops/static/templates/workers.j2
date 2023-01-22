@@ -1,0 +1,23 @@
+{% extends 'base.j2' %}
+{% block title %}workers{% endblock %}
+{% block content %}
+<h1>workers</h1>
+<table>
+<tr>
+<th>id</th>
+<th>name</th>
+<th>maxtasks</th>
+<th>running_tasks</th>
+</tr>
+<thead>
+</thead>
+{% for worker in workers %}
+    <tr>
+        <td><a href="/workers/{{ worker.id }}"><code>{{ worker.id|truncate(8, end='') }}</code></a></td>
+        <td>{{ worker.name }}</td>
+        <td>{{ worker.maxtasks }}</td>
+        <td>{{ worker.running_tasks | length}}</td>
+    </tr>
+{% endfor %}
+</table>
+{% endblock %}
