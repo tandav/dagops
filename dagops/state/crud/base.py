@@ -16,11 +16,12 @@ class CRUD:
     def read_many(
         self,
         db: Session,
-        skip: int = 0,
-        limit: int = 100,
+        skip: int | None = None,
+        limit: int | None = None,
     ) -> list[Base]:
         query = db.query(self.model)
-        query = query.offset(skip).limit(limit)
+        if skip is not None and limit is not None:
+            query = query.offset(skip).limit(limit)
         return query.all()
 
     def read_by_field_isin(
