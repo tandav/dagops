@@ -40,18 +40,20 @@ class TaskCRUD(CRUD):
         if db_obj is None:
             raise exceptions.HttpNotFound(f'No {self.model.__name__} with id {id} found')
 
-        SPECIAL_HANDLING = {'worker_id'}
-        for key, value in obj.dict(exclude_unset=True).items():
-            if key in SPECIAL_HANDLING:
-                continue
+        # SPECIAL_HANDLING = {'running_worker_id'}
+        obj_dict = obj.dict(exclude_unset=True)
+        for key, value in obj_dict.items():
+            # if key in SPECIAL_HANDLING:
+            # continue
             setattr(db_obj, key, value)
 
-        if obj.worker_id is None:
-            print('Setting worker_id to None')
-            db_obj.worker = None
-            db_obj.worker_id = None
-        else:
-            raise NotImplementedError('Changing worker_id is not implemented yet')
+        # if obj.worker_id is None:
+        # if 'running_worker_id' in obj_dict:
+            # if obj_dict['running_worker_id'] is not None:
+            # raise NotImplementedError('Changing running_worker_id is not implemented yet')
+            # print('Setting running_worker_id to None')
+            # db_obj.running_worker = None
+            # db_obj.running_worker_id = None
 
         db.add(db_obj)
         db.commit()

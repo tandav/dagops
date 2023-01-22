@@ -8,13 +8,11 @@ import aiofiles.os
 from sqlalchemy.orm import Session
 
 from dagops import constant
-from dagops.dag import Dag
+from dagops.state import models
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.state.crud.worker import worker_crud
-from dagops.task import Task
 from dagops.task_status import TaskStatus
 
 
@@ -34,7 +32,7 @@ class Daemon:
         self.aiotask_to_task = {}
         self.aiotask_to_task_id = {}
 
-    async def handle_tasks_new(self):
+    async def handle_tasks_new(self):  # noqa: C901
         while True:
             for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
                 all_upstream_success = True
@@ -49,6 +47,7 @@ class Daemon:
                             schemas.TaskUpdate(
                                 status=TaskStatus.FAILED,
                                 updated_at=datetime.datetime.now(),
+                                running_worker_id=None,
                             ),
                         )
                         break
@@ -61,10 +60,15 @@ class Daemon:
                             schemas.TaskUpdate(
                                 status=TaskStatus.SUCCESS,
                                 updated_at=now,
-                                started_at=now,
+                                started_at=min(u.started_at for u in task.upstream),
+                                stopped_at=now,
+                                running_worker_id=None,
                             ),
                         )
                     elif task.task_type == 'shell':
+                        if len(task.worker.running_tasks) >= task.worker.maxtasks:
+                            print(f'worker {task.worker.name} is busy, skipping task {task.id} {len(task.worker.running_tasks)=}')
+                            continue
                         task_crud.update_by_id(
                             self.db,
                             task.id,
@@ -72,6 +76,7 @@ class Daemon:
                                 status=TaskStatus.RUNNING,
                                 updated_at=now,
                                 started_at=now,
+                                running_worker_id=task.worker.id,
                             ),
                         )
                         self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
@@ -99,10 +104,10 @@ class Daemon:
                         stopped_at=stopped_at,
                         updated_at=stopped_at,
                         output_data={'returncode': p.returncode},
+                        running_worker_id=None,
                     ),
                 )
                 del self.aiotask_to_task_id[aiotask]
-                # await task.dag.done_queue.put(task)
                 print('EXITING TASK', task_id, status)
             await asyncio.sleep(constant.SLEEP_TIME)
 
@@ -125,7 +130,7 @@ class Daemon:
                     raise ValueError(f'dependency {dep} of task {task} not in dag')
 
     @staticmethod
-    def prepare_dag(graph: dict[Task, list[Task]]) -> schemas.DagCreate:
+    def prepare_dag(graph: schemas.InputDataDag) -> schemas.DagCreate:
         input_data = [None] * len(graph)
         task_to_id = {}
         for i, task in enumerate(graph):
@@ -141,7 +146,7 @@ class Daemon:
         )
         return dag
 
-    def create_dag(self, file: str) -> Dag:
+    def create_dag(self, file: str) -> models.Task:
         dag = self.create_dag_func(file)
         self.validate_dag(dag)
         dag = self.prepare_dag(dag)
@@ -186,7 +191,7 @@ class Daemon:
                     status=TaskStatus.CANCELED,
                     stopped_at=now,
                     updated_at=now,
-                    worker_id=None,
+                    running_worker_id=None,
                 ),
             )
         # workers = worker_crud.read_many(self.db) # todo fix offset/limit

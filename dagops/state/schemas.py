@@ -117,6 +117,7 @@ class TaskUpdate(BaseModel):
     status: TaskStatus | None
     output_data: dict | None = None
     worker_id: str | None = None
+    running_worker_id: str | None = None
 
 
 # =============================================================================
@@ -189,6 +190,7 @@ class WorkerCreate(BaseModel):
 
 class WorkerUpdate(BaseModel):
     tasks: list[str]
+    running_tasks: list[str]
 
 
 class Worker(WorkerCreate, WorkerUpdate):

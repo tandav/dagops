@@ -23,6 +23,10 @@
         <td>maxtasks</td>
         <td><code>{{ worker.maxtasks }}</code></td>
     </tr>
+    <tr>
+        <td>running_tasks</td>
+        <td>{{ worker.running_tasks | length }}</td>
+    </tr>
 </tbody>
 </table>
 
@@ -34,7 +38,7 @@
     </tr>
 </thead>
 <tbody>
-    {% for task_id in worker.tasks %}
+    {% for task_id in worker.running_tasks %}
     <tr>
         <td><a href="/tasks/{{ task_id }}"><code>{{ task_id }}</code></a></td>
     </tr>

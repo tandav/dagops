@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session
 
 from dagops.state import models
 from dagops.state import schemas
-from dagops.state.crud.base import CRUD
 from dagops.state.crud.task import task_crud
 from dagops.state.schemas import DagCreate
-from dagops.task_status import TaskStatus
 
 
 # class DagCRUD(CRUD):
@@ -78,4 +76,6 @@ class DagCRUD:
 
         # return db_dag
 # dag_crud = DagCRUD(models.Dag)
+
+
 dag_crud = DagCRUD()

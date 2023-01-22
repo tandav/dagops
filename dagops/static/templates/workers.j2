@@ -7,6 +7,7 @@
 <th>id</th>
 <th>name</th>
 <th>maxtasks</th>
+<th>running_tasks</th>
 </tr>
 <thead>
 </thead>
@@ -15,6 +16,7 @@
         <td><a href="/workers/{{ worker.id }}"><code>{{ worker.id|truncate(8, end='') }}</code></a></td>
         <td>{{ worker.name }}</td>
         <td>{{ worker.maxtasks }}</td>
+        <td>{{ worker.running_tasks | length}}</td>
     </tr>
 {% endfor %}
 </table>
