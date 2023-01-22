@@ -17,6 +17,7 @@ def create_all():
     db = SessionLocal()
     worker_crud.create(db, schemas.WorkerCreate(name='cpu', maxtasks=32))
     worker_crud.create(db, schemas.WorkerCreate(name='gpu', maxtasks=1))
+    worker_crud.create(db, schemas.WorkerCreate(name='dummy'))
     db.close()
 
 

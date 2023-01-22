@@ -27,6 +27,7 @@ class DagCRUD:
             task_create = schemas.TaskCreate(
                 task_type=dag.task_type,
                 input_data=input_data,
+                worker_name=input_data['worker_name'],
                 upstream=[task_input_data_id_to_db_task[td].id for td in dag.graph[task_input_data_id]],
                 dag_id=head_task_id,
             )
@@ -37,6 +38,7 @@ class DagCRUD:
         head_task_create = schemas.TaskCreate(
             task_type='dag',
             id=head_task_id,
+            worker_name='dummy',
             upstream=[task.id for task in task_input_data_id_to_db_task.values()],
         )
         head_task = task_crud.create(db, head_task_create)

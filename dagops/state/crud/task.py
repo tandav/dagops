@@ -6,6 +6,7 @@ from dagops.state import models
 from dagops.state.crud.base import CRUD
 from dagops.state.schemas import TaskCreate
 from dagops.task_status import TaskStatus
+from dagops.state.crud.worker import worker_crud
 
 
 class TaskCRUD(CRUD):
@@ -18,6 +19,8 @@ class TaskCRUD(CRUD):
         task_dict = task.dict()
         upstream = self.read_by_field_isin(db, 'id', task_dict['upstream'], not_found_ok=False)
         task_dict['upstream'] = upstream
+        worker, = worker_crud.read_by_field(db, 'name', task_dict.pop('worker_name'))
+        task_dict['worker'] = worker
         # print(task_dict)
         db_task = models.Task(
             **task_dict,

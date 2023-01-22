@@ -25,8 +25,19 @@ class WithDuration(BaseModel):
 
 # =============================================================================
 
+SUPPORTED_WORKER_NAMES = {'cpu', 'gpu', 'dummy'}
 
-class ShellTaskInputData(BaseModel):
+class WithWorkerName(BaseModel):
+    worker_name: str
+
+    @validator('worker_name')
+    def validate_worker_name(cls, worker_name):
+        if worker_name not in SUPPORTED_WORKER_NAMES:
+            raise ValueError(f'worker_name must be one of {SUPPORTED_WORKER_NAMES}')
+        return worker_name
+
+
+class ShellTaskInputData(WithWorkerName):
     command: list[str]
     env: dict[str, str]
 
@@ -42,7 +53,8 @@ TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
 }
 
 
-class TaskCreate(BaseModel):
+
+class TaskCreate(WithWorkerName):
     id: str | None = None
     dag_id: str | None = None
     upstream: list[str] = []
@@ -50,6 +62,7 @@ class TaskCreate(BaseModel):
     # is_dag_head: bool = False
     task_type: str | None = None
     input_data: dict | None = None
+    worker_id: str
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
@@ -167,7 +180,7 @@ class File(FileCreate, FileUpdate):
 
 class WorkerCreate(BaseModel):
     name: str
-    maxtasks: int
+    maxtasks: int | None = None
 
 
 class Worker(WorkerCreate):

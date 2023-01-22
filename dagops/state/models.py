@@ -82,6 +82,8 @@ class Task(Base):
             'id': self.id,
             'task_type': self.task_type,
             'dag_id': self.dag_id,
+            'worker_id': self.worker_id,
+            'worker_name': self.worker.name,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'started_at': self.started_at,
@@ -101,7 +103,7 @@ class Worker(Base):
     __tablename__ = 'worker'
     id = Column(String, primary_key=True, default=uuid_gen)
     name = Column(String, nullable=False)
-    maxtasks = Column(Integer, nullable=False)
+    maxtasks = Column(Integer, nullable=True)
     tasks = relationship('Task', back_populates='worker')
 
     def to_dict(self):
