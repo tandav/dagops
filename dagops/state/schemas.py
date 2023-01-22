@@ -26,7 +26,7 @@ class WithDuration(BaseModel):
 # =============================================================================
 
 
-class ShellTaskPayload(BaseModel):
+class ShellTaskInputData(BaseModel):
     command: list[str]
     env: dict[str, str]
 
@@ -34,10 +34,10 @@ class ShellTaskPayload(BaseModel):
         return hash((tuple(self.command), frozenset(self.env.items())))
 
 
-PayloadDag = dict[ShellTaskPayload, list[ShellTaskPayload]]
+InputDataDag = dict[ShellTaskInputData, list[ShellTaskInputData]]
 
-TASK_TYPE_TO_PAYLOAD_SCHEMA = {
-    'shell': ShellTaskPayload,
+TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
+    'shell': ShellTaskInputData,
     'dag': None,
 }
 
@@ -49,22 +49,22 @@ class TaskCreate(BaseModel):
     # dag_tasks: list[str] | None = None
     # is_dag_head: bool = False
     task_type: str | None = None
-    payload: dict | None = None
+    input_data: dict | None = None
 
     @root_validator(pre=True)
-    def validate_task_type_and_payload(cls, values):
+    def validate_task_type_and_input_data(cls, values):
         if 'task_type' not in values or values['task_type'] is None:
             return values
             # raise ValueError('task_type must be set')
         task_type = values['task_type']
-        payload_schema = TASK_TYPE_TO_PAYLOAD_SCHEMA[task_type]
-        if payload_schema is None:
+        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
+        if input_data_schema is None:
             return values
-        if 'payload' not in values:
-            raise ValueError('payload must be set for task_type {task_type}')
-        if task_type not in TASK_TYPE_TO_PAYLOAD_SCHEMA:
+        if 'input_data' not in values:
+            raise ValueError('input_data must be set for task_type {task_type}')
+        if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
-        payload_schema.validate(values['payload'])
+        input_data_schema.validate(values['input_data'])
         return values
 
     @root_validator()
@@ -105,19 +105,19 @@ class TaskUpdate(BaseModel):
 
 class DagCreate(BaseModel):
     task_type: str | None = None
-    task_payloads: list[dict]
+    tasks_input_data: list[dict]
     graph: dict[int, list[int]]
 
     @root_validator
     def validate_graph(cls, values):
         graph = values['graph']
-        n_task_payloads = len(values['task_payloads'])
+        n_tasks = len(values['tasks_input_data'])
         for node, childs in graph.items():
-            if not (0 <= node < n_task_payloads):
-                raise ValueError(f'node={node} not in graph, n_task_payloads={n_task_payloads}')
+            if not (0 <= node < n_tasks):
+                raise ValueError(f'node={node} not in graph, n_tasks={n_tasks}')
             for child in childs:
-                if not (0 <= child < n_task_payloads):
-                    raise ValueError(f'child={child} of node={node} not in graph, n_task_payloads={n_task_payloads}')
+                if not (0 <= child < n_tasks):
+                    raise ValueError(f'child={child} of node={node} not in graph, n_tasks={n_tasks}')
                 if child not in graph:
                     raise ValueError(f'child={child} of node={node } not in graph')
         return values

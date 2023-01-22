@@ -54,8 +54,8 @@
 </table>
 
 
-<h2>task payload</h2>
-{% if task.payload %}
+<h2>input data</h2>
+{% if task.input_data %}
 <table>
 <thead>
     <tr>
@@ -64,7 +64,7 @@
     </tr>
 </thead>
 <tbody>
-    {% for key, value in task.payload.items() %}
+    {% for key, value in task.input_data.items() %}
     <tr>
         <td>{{ key }}</td>
         <td><a href="/tasks/{{ task.id }}/{{ key }}.json"><code>{{ value }}</code></a></td>
@@ -73,7 +73,7 @@
 </tbody>
 </table>
 {% else %}
-<p>no payload</p>
+<p>no input_data</p>
 {% endif %}
 
 <h2>upstream tasks</h2>

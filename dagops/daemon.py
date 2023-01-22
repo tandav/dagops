@@ -22,7 +22,7 @@ class Daemon:
         self,
         watch_path: str,
         db: Session,
-        create_dag_func: Callable[[str], schemas.PayloadDag],
+        create_dag_func: Callable[[str], schemas.InputDataDag],
     ):
         self.watch_path = Path(watch_path)
         self.db = db
@@ -108,8 +108,8 @@ class Daemon:
     async def run_tasks(self, task):
         with open(f'{os.environ["LOGS_DIRECTORY"]}/{task.id}.txt', 'w') as logs_fh:
             p = await asyncio.create_subprocess_exec(
-                *task.payload['command'],
-                env=task.payload['env'],
+                *task.input_data['command'],
+                env=task.input_data['env'],
                 stdout=logs_fh,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -195,7 +195,7 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     @staticmethod
-    def validate_dag(dag: dict[schemas.ShellTaskPayload, list[schemas.ShellTaskPayload]]):
+    def validate_dag(dag: dict[schemas.ShellTaskInputData, list[schemas.ShellTaskInputData]]):
         for task, deps in dag.items():
             for dep in deps:
                 if dep not in dag:
@@ -203,17 +203,17 @@ class Daemon:
 
     @staticmethod
     def prepare_dag(graph: dict[Task, list[Task]]) -> schemas.DagCreate:
-        task_payloads = [None] * len(graph)
+        input_data = [None] * len(graph)
         task_to_id = {}
         for i, task in enumerate(graph):
             task_to_id[task] = i
-            task_payloads[i] = task
+            input_data[i] = task
         id_graph = {}
         for task, deps in graph.items():
             id_graph[task_to_id[task]] = [task_to_id[dep] for dep in deps]
         dag = schemas.DagCreate(
             task_type='shell',
-            task_payloads=task_payloads,
+            tasks_input_data=input_data,
             graph=id_graph,
         )
         return dag

@@ -57,7 +57,8 @@ class Task(Base):
     status = Column(Enum(TaskStatus), nullable=False)
     # command = Column(JSON, nullable=False)
     # env = Column(JSON, nullable=False)
-    payload = Column(JSON, nullable=True)
+    input_data = Column(JSON, nullable=True)
+    output_data = Column(JSON, nullable=True)
     upstream = relationship(
         'Task',
         secondary=task_to_upstream_tasks,
@@ -85,7 +86,8 @@ class Task(Base):
             'status': self.status,
             # 'command': self.command,
             # 'env': self.env,
-            'payload': self.payload,
+            'input_data': self.input_data,
+            'output_data': self.output_data,
             'upstream': [task.id for task in self.upstream],
             'downstream': [task.id for task in self.downstream],
             # 'dag_tasks': [task.id for task in self.dag_tasks],

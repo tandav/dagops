@@ -4,13 +4,12 @@
         <th>id</th>
         <th>dag_id</th>
         <th>status</th>
-        <th>payload</th>
+        <th>input_data</th>
         <th>created_at</th>
         <th>updated_at</th>
         <th>started_at</th>
         <th>stopped_at</th>
         <th>duration_seconds</th>
-        {# <th>returncode</th> #}
         <th>logs</th>
     </tr>
 </thead>
@@ -20,13 +19,12 @@
         <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
         <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
-        <td><a href="/tasks/{{ task.id }}/payload.json"><code>{{ task.payload | string | truncate(10) }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}/input_data.json"><code>{{ task.input_data | string | truncate(10) }}</code></a></td>
         <td><code>{{ task.created_at|format_time if task.created_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.updated_at|format_time if task.updated_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.started_at|format_time if task.started_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.stopped_at|format_time if task.stopped_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.duration_seconds|round(1) if task.duration_seconds is not none else 'NULL' }}</code></td>
-        {# <td><code>{{ task.returncode }}</code></td> #}
         <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
     </tr>
 {% endfor %}
