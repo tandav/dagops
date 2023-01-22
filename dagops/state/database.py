@@ -6,7 +6,8 @@ from sqlalchemy.orm import sessionmaker
 
 from dagops.state import models
 
-engine = create_engine(os.environ['DB_URL'], connect_args={'check_same_thread': False}, echo=False)
+# engine = create_engine(os.environ['DB_URL'], connect_args={'check_same_thread': False}, echo=False)
+engine = create_engine(os.environ['DB_URL'])
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
