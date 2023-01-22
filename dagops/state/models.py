@@ -48,7 +48,7 @@ class Task(Base):
     # is_dag_head = Column(Boolean, nullable=False)
     task_type = Column(String, nullable=True)
     dag_id = Column(String, ForeignKey('task.id'), nullable=True)
-    worker_id = Column(String, ForeignKey('worker.id'), nullable=False)
+    worker_id = Column(String, ForeignKey('worker.id'), nullable=True)
     worker = relationship('Worker', back_populates='tasks')
     # dag = relationship('Task', back_populates='dag_tasks')
     # dag_tasks = relationship('Task', back_populates='dag', remote_side=[id])
@@ -83,7 +83,7 @@ class Task(Base):
             'task_type': self.task_type,
             'dag_id': self.dag_id,
             'worker_id': self.worker_id,
-            'worker_name': self.worker.name,
+            'worker_name': self.worker.name if self.worker else None,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'started_at': self.started_at,

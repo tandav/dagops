@@ -25,13 +25,17 @@ class WithDuration(BaseModel):
 
 # =============================================================================
 
+
 SUPPORTED_WORKER_NAMES = {'cpu', 'gpu', 'dummy'}
 
+
 class WithWorkerName(BaseModel):
-    worker_name: str
+    worker_name: str | None = None
 
     @validator('worker_name')
     def validate_worker_name(cls, worker_name):
+        if worker_name is None:
+            return worker_name
         if worker_name not in SUPPORTED_WORKER_NAMES:
             raise ValueError(f'worker_name must be one of {SUPPORTED_WORKER_NAMES}')
         return worker_name
@@ -53,7 +57,6 @@ TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
 }
 
 
-
 class TaskCreate(WithWorkerName):
     id: str | None = None
     dag_id: str | None = None
@@ -62,7 +65,7 @@ class TaskCreate(WithWorkerName):
     # is_dag_head: bool = False
     task_type: str | None = None
     input_data: dict | None = None
-    worker_id: str
+    worker_id: str | None = None
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
@@ -113,6 +116,7 @@ class TaskUpdate(BaseModel):
     updated_at: datetime.datetime
     status: TaskStatus | None
     output_data: dict | None = None
+    worker_id: str | None = None
 
 
 # =============================================================================
@@ -183,9 +187,12 @@ class WorkerCreate(BaseModel):
     maxtasks: int | None = None
 
 
-class Worker(WorkerCreate):
-    id: str
+class WorkerUpdate(BaseModel):
     tasks: list[str]
+
+
+class Worker(WorkerCreate, WorkerUpdate):
+    id: str
 
     class Config:
         orm_mode = True

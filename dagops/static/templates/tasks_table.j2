@@ -29,7 +29,13 @@
         <td><code>{{ task.stopped_at|format_time if task.stopped_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.duration_seconds|round(1) if task.duration_seconds is not none else 'NULL' }}</code></td>
         <td><a href="/logs/{{ task.id }}.txt">logs</code></a></td>
-        <td><a href="/workers/{{ task.worker_id }}"><code>{{ task.worker_name|truncate(8, end='') if task.worker_id is not none else 'NULL' }}</code></a></td>
+        <td>
+            {% if task.worker_id is not none %}
+            <a href="/workers/{{ task.worker_id }}"><code>{{ task.worker_name|truncate(8, end='') if task.worker_id is not none else 'NULL' }}</code></a>
+            {% else %}
+            NULL
+            {% endif %}
+        </td>
     </tr>
 {% endfor %}
 </tbody>

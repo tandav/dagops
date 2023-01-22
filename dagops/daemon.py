@@ -13,6 +13,7 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
+from dagops.state.crud.worker import worker_crud
 from dagops.task import Task
 from dagops.task_status import TaskStatus
 
@@ -116,84 +117,6 @@ class Daemon:
             await p.communicate()
             return p
 
-    async def handle_pending_tasks(self):
-        while True:
-            if self.pending_queue.empty():
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-            while not self.pending_queue.empty():
-                task = await self.pending_queue.get()
-                self.aiotask_to_task[asyncio.create_task(task.run())] = task
-
-    async def handle_tasks(self):
-        while True:
-            if not self.aiotask_to_task:
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-
-            done, running = await asyncio.wait(self.aiotask_to_task, return_when=asyncio.FIRST_COMPLETED)
-            for task_aiotask in done:
-                p = task_aiotask.result()
-                assert p.returncode is not None
-                task = self.aiotask_to_task[task_aiotask]
-                status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
-                stopped_at = datetime.datetime.now()
-
-                task_crud.update_by_id(
-                    self.db,
-                    task.id,
-                    schemas.TaskUpdate(
-                        status=status,
-                        stopped_at=stopped_at,
-                        updated_at=stopped_at,
-                        duration=(stopped_at - task.started_at).seconds,
-                        returncode=p.returncode,
-                    ),
-                )
-                del self.aiotask_to_task[task_aiotask]
-                await task.dag.done_queue.put(task)
-                print('EXITING TASK', task.id, task.status)
-            await asyncio.sleep(constant.SLEEP_TIME)
-
-    async def handle_pending_dags(self):
-        while True:
-            if self.dags_pending_queue.empty():
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-            while not self.dags_pending_queue.empty():
-                dag = await self.dags_pending_queue.get()
-                self.aiotask_to_dag[asyncio.create_task(dag.run(self.pending_queue))] = dag
-
-    async def handlers_dags(self):
-        while True:
-            if not self.aiotask_to_dag:
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-
-            print(self.aiotask_to_dag)
-            done, running = await asyncio.wait(self.aiotask_to_dag, return_when=asyncio.FIRST_COMPLETED)
-            print('done', done)
-            for dag_aiotask in done:
-                dag = self.aiotask_to_dag[dag_aiotask]
-                status = TaskStatus.SUCCESS if all(t.status == TaskStatus.SUCCESS for t in dag.tasks) else TaskStatus.FAILED
-                success_tasks = sum(1 for t in dag.tasks if t.status == TaskStatus.SUCCESS)
-                status = TaskStatus.SUCCESS if success_tasks == len(dag.tasks) else TaskStatus.FAILED
-
-                stopped_at = datetime.datetime.now()
-                dag_crud.update_by_id(
-                    self.db,
-                    dag.id,
-                    schemas.DagUpdate(
-                        status=status,
-                        stopped_at=stopped_at,
-                        updated_at=stopped_at,
-                        duration=(stopped_at - dag.started_at).seconds,
-                        success_tasks=f'{success_tasks}/{len(dag.tasks)}',
-                    ),
-                )
-                del self.aiotask_to_dag[dag_aiotask]
-            await asyncio.sleep(constant.SLEEP_TIME)
-
     @staticmethod
     def validate_dag(dag: dict[schemas.ShellTaskInputData, list[schemas.ShellTaskInputData]]):
         for task, deps in dag.items():
@@ -263,8 +186,12 @@ class Daemon:
                     status=TaskStatus.CANCELED,
                     stopped_at=now,
                     updated_at=now,
+                    worker_id=None,
                 ),
             )
+        # workers = worker_crud.read_many(self.db) # todo fix offset/limit
+        # for worker in workers:
+        #     worker_crud.update_by_id(self.db, worker.id, schemas.WorkerUpdate(tasks=[]))
 
     async def __call__(self):
         await self.cancel_orphaned()
