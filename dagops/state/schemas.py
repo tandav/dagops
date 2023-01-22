@@ -3,7 +3,6 @@ import uuid
 
 from pydantic import BaseModel
 from pydantic import root_validator
-from pydantic import validator
 
 from dagops.task_status import TaskStatus
 
@@ -26,17 +25,8 @@ class WithDuration(BaseModel):
 # =============================================================================
 
 
-SUPPORTED_WORKER_NAMES = {'cpu', 'gpu', 'dummy'}
-
-
 class WithWorkerName(BaseModel):
     worker_name: str
-
-    @validator('worker_name')
-    def validate_worker_name(cls, worker_name):
-        if worker_name not in SUPPORTED_WORKER_NAMES:
-            raise ValueError(f'worker_name must be one of {SUPPORTED_WORKER_NAMES}')
-        return worker_name
 
 
 class ShellTaskInputData(WithWorkerName):
