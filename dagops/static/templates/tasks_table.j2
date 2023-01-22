@@ -4,8 +4,7 @@
         <th>id</th>
         <th>dag_id</th>
         <th>status</th>
-        <th>command</th>
-        <th>env</th>
+        <th>payload</th>
         <th>created_at</th>
         <th>updated_at</th>
         <th>started_at</th>
@@ -21,8 +20,7 @@
         <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
         <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
-        <td><a href="/tasks/{{ task.id }}/command.json"><code>{{ task.payload.command | string | truncate(10) }}</code></a></td>
-        <td><a href="/tasks/{{ task.id }}/env.json"><code>{{ task.payload.env | string | truncate(10) }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}/payload.json"><code>{{ task.payload | string | truncate(10) }}</code></a></td>
         <td><code>{{ task.created_at|format_time if task.created_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.updated_at|format_time if task.updated_at is not none else 'NULL'}}</code></td>
         <td><code>{{ task.started_at|format_time if task.started_at is not none else 'NULL'}}</code></td>
