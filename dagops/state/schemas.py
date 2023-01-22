@@ -30,12 +30,10 @@ SUPPORTED_WORKER_NAMES = {'cpu', 'gpu', 'dummy'}
 
 
 class WithWorkerName(BaseModel):
-    worker_name: str | None = None
+    worker_name: str
 
     @validator('worker_name')
     def validate_worker_name(cls, worker_name):
-        if worker_name is None:
-            return worker_name
         if worker_name not in SUPPORTED_WORKER_NAMES:
             raise ValueError(f'worker_name must be one of {SUPPORTED_WORKER_NAMES}')
         return worker_name
