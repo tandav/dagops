@@ -6,6 +6,7 @@ from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
+from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Table
 # from sqlalchemy.ext.declarative import declarative_base
@@ -47,6 +48,8 @@ class Task(Base):
     # is_dag_head = Column(Boolean, nullable=False)
     task_type = Column(String, nullable=True)
     dag_id = Column(String, ForeignKey('task.id'), nullable=True)
+    worker_id = Column(String, ForeignKey('worker.id'), nullable=False)
+    worker = relationship('Worker', back_populates='tasks')
     # dag = relationship('Task', back_populates='dag_tasks')
     # dag_tasks = relationship('Task', back_populates='dag', remote_side=[id])
 
@@ -94,3 +97,17 @@ class Task(Base):
         }
 
 
+class Worker(Base):
+    __tablename__ = 'worker'
+    id = Column(String, primary_key=True, default=uuid_gen)
+    name = Column(String, nullable=False)
+    maxtasks = Column(Integer, nullable=False)
+    tasks = relationship('Task', back_populates='worker')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'maxtasks': self.maxtasks,
+            'tasks': [task.id for task in self.tasks],
+        }

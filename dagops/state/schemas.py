@@ -161,3 +161,18 @@ class File(FileCreate, FileUpdate):
 
     class Config:
         orm_mode = True
+
+# =============================================================================
+
+
+class WorkerCreate(BaseModel):
+    name: str
+    maxtasks: int
+
+
+class Worker(WorkerCreate):
+    id: str
+    tasks: list[str]
+
+    class Config:
+        orm_mode = True

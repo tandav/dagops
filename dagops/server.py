@@ -19,6 +19,7 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
+from dagops.state.crud.worker import worker_crud
 
 static_folder = Path(__file__).parent / 'static'
 app = FastAPI()
@@ -148,7 +149,6 @@ async def read_task(
     task = task_crud.read_by_id(db, task_id)
     # task = schemas.Task.from_orm(task)
     task = schemas.Task(**task.to_dict())
-    print('**********', task)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================
@@ -371,6 +371,62 @@ def read_file(
 ):
     db_obj = file_crud.read_by_id(db, file_id)
     return templates.TemplateResponse('file.j2', {'request': request, 'file': db_obj})
+
+
+# =============================================================================
+
+@app.get(
+    '/api/workers/',
+    response_model=list[schemas.Worker],
+)
+def api_read_workers(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = worker_crud.read_many(db, skip, limit)
+    return db_objects
+
+
+@app.get(
+    '/api/workers/{worker_id}',
+    response_model=schemas.Worker,
+)
+def api_read_worker(
+    worker_id: str,
+    db: Session = Depends(get_db),
+):
+    db_obj = worker_crud.read_by_id(db, worker_id)
+    if db_obj is None:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='worker not found')
+    return db_obj.to_dict()
+
+
+# ------------------------------------------------------------------------------
+
+@app.get(
+    '/workers/',
+    response_class=HTMLResponse,
+)
+def read_workers(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    db_objects = worker_crud.read_many(db, skip, limit)
+    return templates.TemplateResponse('workers.j2', {'request': request, 'workers': db_objects})
+
+
+@app.get('/workers/{worker_id}', response_class=HTMLResponse)
+async def read_worker(
+    worker_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    db_obj = worker_crud.read_by_id(db, worker_id)
+    obj = schemas.Worker(**db_obj.to_dict())
+    return templates.TemplateResponse('worker.j2', {'request': request, 'worker': obj})
 
 
 # =============================================================================
