@@ -15,7 +15,7 @@ def create_dag(
     b = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'}, worker_name='cpu')
     c = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'}, worker_name='cpu')
     d = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'}, worker_name='cpu')
-    e = ShellTaskInputData(command=command, env={'TASK_NAME': file, 'SUBTASK': 'e'}, worker_name='cpu')
+    e = ShellTaskInputData(command=['ls'], worker_name='cpu')
     graph = {
         a: [],
         b: [],

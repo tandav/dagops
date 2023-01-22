@@ -43,10 +43,12 @@ class WithWorkerName(BaseModel):
 
 class ShellTaskInputData(WithWorkerName):
     command: list[str]
-    env: dict[str, str]
+    env: dict[str, str] | None = None
 
     def __hash__(self):
-        return hash((tuple(self.command), frozenset(self.env.items())))
+        command = tuple(self.command)
+        env = frozenset(self.env.items()) if self.env is not None else None
+        return hash((command, env))
 
 
 InputDataDag = dict[ShellTaskInputData, list[ShellTaskInputData]]
