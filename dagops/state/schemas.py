@@ -35,6 +35,7 @@ class ShellTaskPayload(BaseModel):
     def __hash__(self):
         return hash((tuple(self.command), frozenset(self.env.items())))
 
+PayloadDag = dict[ShellTaskPayload, list[ShellTaskPayload]]
 
 TASK_TYPE_TO_PAYLOAD_SCHEMA = {
     'shell': ShellTaskPayload,

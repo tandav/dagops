@@ -13,6 +13,7 @@ from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 from dagops.task_status import TaskStatus
+from dagops.task import Task
 
 
 class Daemon:
@@ -20,7 +21,7 @@ class Daemon:
         self,
         watch_path: str,
         db: Session,
-        create_dag_func: Callable[[str, Session], Dag],
+        create_dag_func: Callable[[str], schemas.PayloadDag],
     ):
         self.watch_path = Path(watch_path)
         self.db = db
@@ -108,10 +109,37 @@ class Daemon:
                 del self.aiotask_to_dag[dag_aiotask]
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    def create_dag(self, file: str) -> Dag:
-        dag = self.create_dag_func(file, self.db)
-        print('dag for file', file, 'created')
+    @staticmethod
+    def validate_dag(dag: dict[schemas.ShellTaskPayload, list[schemas.ShellTaskPayload]]):
+        for task, deps in dag.items():
+            for dep in deps:
+                if dep not in dag:
+                    raise ValueError(f'dependency {dep} of task {task} not in dag')
+
+    @staticmethod
+    def prepare_dag(graph: dict[Task, list[Task]]) -> schemas.DagCreate:
+        task_payloads = [None] * len(graph)
+        task_to_id = {}
+        for i, task in enumerate(graph):
+            task_to_id[task] = i
+            task_payloads[i] = task
+        id_graph = {}
+        for task, deps in graph.items():
+            id_graph[task_to_id[task]] = [task_to_id[dep] for dep in deps]
+        dag = schemas.DagCreate(
+            task_type='shell',
+            task_payloads=task_payloads,
+            graph=id_graph,
+        )
         return dag
+
+    def create_dag(self, file: str) -> Dag:
+        dag = self.create_dag_func(file)
+        self.validate_dag(dag)
+        dag = self.prepare_dag(dag)
+        dag_head_task = dag_crud.create(self.db, dag)
+        print('dag for file', file, 'created')
+        return dag_head_task
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
@@ -120,9 +148,9 @@ class Daemon:
             for file in files:
                 if file.dag_id is None:
                     print('dag for file', file.path, 'start creating...')
-                    dag = self.create_dag(file.path)
-                    await self.dags_pending_queue.put(dag)
-                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag.id))
+                    dag_head_task = self.create_dag(file.path)
+                    # await self.dags_pending_queue.put(dag)
+                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def watch_directory(self):

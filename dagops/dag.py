@@ -34,7 +34,8 @@ class Dag:
     def db_task(self):
         return dag_crud.read_by_id(self.db, self.id)
 
-    def extract_tasks_and_id_graph(self, graph: dict[Task, set[Task]]) -> tuple[set[Task], dict[Task, list[Task]]]:
+    @staticmethod
+    def extract_tasks_and_id_graph(graph: dict[Task, set[Task]]) -> tuple[set[Task], dict[Task, list[Task]]]:
         tasks = set()
         id_graph = {}
         for node, predecessors in graph.items():
