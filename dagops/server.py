@@ -129,7 +129,7 @@ async def read_tasks(
     request: Request,
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 1000,
 ):
     db_objects = task_crud.read_many(db, skip, limit)
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
