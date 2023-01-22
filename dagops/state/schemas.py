@@ -88,6 +88,7 @@ class Task(TaskCreate, WithDuration):
     stopped_at: datetime.datetime | None
     status: TaskStatus
     downstream: list[str] = []
+    output_data: dict | None = None
 
     class Config:
         orm_mode = True
@@ -98,6 +99,7 @@ class TaskUpdate(BaseModel):
     stopped_at: datetime.datetime | None
     updated_at: datetime.datetime
     status: TaskStatus | None
+    output_data: dict | None = None
 
 
 # =============================================================================

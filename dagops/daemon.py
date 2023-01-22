@@ -97,7 +97,7 @@ class Daemon:
                         status=status,
                         stopped_at=stopped_at,
                         updated_at=stopped_at,
-                        returncode=p.returncode,
+                        output_data={'returncode': p.returncode},
                     ),
                 )
                 del self.aiotask_to_task_id[aiotask]
