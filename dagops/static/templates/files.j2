@@ -6,7 +6,8 @@
 <table>
 <tr>
 <th>id</th>
-<th>path</th>
+<th>directory</th>
+<th>file</th>
 <th>dag_id</th>
 </tr>
 <thead>
@@ -14,7 +15,8 @@
 {% for file in files %}
     <tr>
         <td><a href="/files/{{ file.id }}"><code>{{ file.id|truncate(8, end='') }}</code></a></td>
-        <td><code>{{ file.path }}</code></td>
+        <td><code>{{ file.directory }}</code></td>
+        <td><code>{{ file.file }}</code></td>
         {% if file.dag_id is not none %}
         <td><a href="/tasks/{{ file.dag_id }}"><code>{{ file.dag_id|truncate(8, end='') }}</code></a></td>
         {% else %}

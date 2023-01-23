@@ -20,15 +20,17 @@ from dagops.task_status import TaskStatus
 class Daemon:
     def __init__(
         self,
-        watch_path: str,
+        watch_directory: str,
         db: Session,
-        create_dag_func: Callable[[str], schemas.InputDataDag],
+        create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         workers: dict[str, int] | None = None,
+        batch: bool = False,
     ):
-        self.watch_path = Path(watch_path)
+        self.watch_directory = Path(watch_directory)
         self.db = db
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
+        self.batch = batch
         self.prepare_workers(workers or constant.workers)
 
     def prepare_workers(self, workers: dict[str, int] | None = None):
@@ -169,26 +171,40 @@ class Daemon:
     async def update_files_dags(self) -> None:
         """create dags for new files"""
         while True:
-            files = file_crud.read_many(self.db)
-            for file in files:
-                if file.dag_id is None:
-                    print('dag for file', file.path, 'start creating...')
-                    dag_head_task = self.create_dag(file.path)
+            files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
+            files = [file for file in files if file.dag_id is None]
+            if not self.batch:
+                for file in files:
+                    print('dag for file', f'{file.directory} / {file.file}', 'creating...')
+                    dag_head_task = self.create_dag(file.file)
+                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
+            elif files:
+                print(f'batch dag for {len(files)} files creating...')
+                dag_head_task = self.create_dag([file.file for file in files])
+                for file in files:
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    async def watch_directory(self):
+    async def do_watch_directory(self):
         while True:
-            files = {str(self.watch_path / p) for p in await aiofiles.os.listdir(self.watch_path)}
+            files = set(await aiofiles.os.listdir(self.watch_directory))
             stale_files_ids = set()
             up_to_date_files_paths = set()
-            for file in file_crud.read_many(self.db):
-                if file.path in files:
-                    up_to_date_files_paths.add(file.path)
+            for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
+                if file.file in files:
+                    up_to_date_files_paths.add(file.file)
                 else:
                     stale_files_ids.add(file.id)
             file_crud.delete_many_by_ids(self.db, stale_files_ids)
-            file_crud.create_many(self.db, [schemas.FileCreate(path=file) for file in files - up_to_date_files_paths])
+            file_crud.create_many(
+                self.db, [
+                    schemas.FileCreate(
+                        directory=str(self.watch_directory),
+                        file=file,
+                    )
+                    for file in files - up_to_date_files_paths
+                ],
+            )
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphaned(self):
@@ -208,10 +224,6 @@ class Daemon:
     async def __call__(self):
         await self.cancel_orphaned()
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(self.watch_directory())
+            tg.create_task(self.do_watch_directory())
             tg.create_task(self.update_files_dags())
             tg.create_task(self.handle_tasks_new())
-            # tg.create_task(self.handle_pending_tasks())
-            # tg.create_task(self.handle_pending_dags())
-            # tg.create_task(self.handle_tasks())
-            # tg.create_task(self.handlers_dags())

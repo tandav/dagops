@@ -157,7 +157,8 @@ class DagCreate(BaseModel):
 
 
 class FileCreate(BaseModel):
-    path: str
+    directory: str
+    file: str
 
 
 class FileUpdate(BaseModel):
