@@ -26,7 +26,8 @@ class File(Base):
     __tablename__ = 'file'
 
     id = Column(String, primary_key=True, default=uuid_gen)
-    path = Column(String, nullable=False)
+    directory = Column(String, nullable=False)
+    file = Column(String, nullable=False)
     dag_id = Column(String, ForeignKey('task.id'), nullable=True)
     dag = relationship('Task')
 
