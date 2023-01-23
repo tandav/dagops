@@ -22,7 +22,7 @@ class Daemon:
         self,
         watch_directory: str,
         db: Session,
-        create_dag_func: Callable[[str], schemas.InputDataDag],
+        create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         workers: dict[str, int] | None = None,
         batch: bool = False,
     ):
@@ -30,6 +30,7 @@ class Daemon:
         self.db = db
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
+        self.batch = batch
         self.prepare_workers(workers or constant.workers)
 
     def prepare_workers(self, workers: dict[str, int] | None = None):
@@ -170,10 +171,17 @@ class Daemon:
     async def update_files_dags(self) -> None:
         """create dags for new files"""
         while True:
-            for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
-                if file.dag_id is None:
+            files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
+            files = [file for file in files if file.dag_id is None]
+            if not self.batch:
+                for file in files:
                     print('dag for file', f'{file.directory} / {file.file}', 'creating...')
                     dag_head_task = self.create_dag(file.file)
+                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
+            elif files:
+                print(f'batch dag for {len(files)} files creating...')
+                dag_head_task = self.create_dag([file.file for file in files])
+                for file in files:
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             await asyncio.sleep(constant.SLEEP_TIME)
 
@@ -188,7 +196,15 @@ class Daemon:
                 else:
                     stale_files_ids.add(file.id)
             file_crud.delete_many_by_ids(self.db, stale_files_ids)
-            file_crud.create_many(self.db, [schemas.FileCreate(directory=str(self.watch_directory), file=file) for file in files - up_to_date_files_paths])
+            file_crud.create_many(
+                self.db, [
+                    schemas.FileCreate(
+                        directory=str(self.watch_directory),
+                        file=file,
+                    )
+                    for file in files - up_to_date_files_paths
+                ],
+            )
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphaned(self):

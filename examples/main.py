@@ -24,6 +24,17 @@ def create_dag(file: str) -> InputDataDag:
     return graph
 
 
+def create_batch_dag(files: list[str]) -> InputDataDag:
+    command = [sys.executable, 'examples/batch_task.py', '--file', *files]
+    a = ShellTaskInputData(command=command, env={'SUBTASK': 'a'}, worker_name='cpu')
+    b = ShellTaskInputData(command=command, env={'SUBTASK': 'b'}, worker_name='cpu')
+    graph = {
+        a: [],
+        b: [a],
+    }
+    return graph
+
+
 async def main():
     with get_db_cm() as db:
         daemon = Daemon(
@@ -35,7 +46,8 @@ async def main():
         daemon2 = Daemon(
             watch_directory='records_tmp2',
             db=db,
-            create_dag_func=create_dag,
+            create_dag_func=create_batch_dag,
+            batch=True,
         )
 
         async with asyncio.TaskGroup() as tg:
