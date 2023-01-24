@@ -19,7 +19,7 @@
 {% for task in tasks %}
     <tr>
         <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
-        <td><a href="/dags/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a></td>
+        <td><a href="/tasks/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a></td>
         <td><code>{{ task.status }}</code></td>
         <td><a href="/tasks/{{ task.id }}/input_data.json"><code>{{ task.input_data | string | truncate(10) }}</code></a></td>
         <td><a href="/tasks/{{ task.id }}/output_data.json"><code>{{ task.output_data | string | truncate(10) }}</code></a></td>
