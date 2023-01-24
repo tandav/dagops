@@ -182,13 +182,10 @@ class WorkerCreate(BaseModel):
     maxtasks: int | None = None
 
 
-class WorkerUpdate(BaseModel):
+class Worker(WorkerCreate):
+    id: str
     tasks: list[str]
     running_tasks: list[str]
-
-
-class Worker(WorkerCreate, WorkerUpdate):
-    id: str
 
     class Config:
         orm_mode = True
