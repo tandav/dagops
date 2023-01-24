@@ -17,14 +17,20 @@
     </tr>
     <tr>
         <td>dag_id</td>
-        <td><a href="/tasks/{{ task.dag_id }}"><code>{{ task.dag_id }}</code></a></td>
+        <td>
+            {% if task.dag_id is not none %}
+            <a href="/tasks/{{ task.dag_id }}"><code>{{ task.dag_id }}</code></a>
+            {% else %}
+            <code>NULL</code>
+            {% endif %}
+        </td>
     </tr>
     <tr>
         <td>task_type</td>
         <td>{{ task.task_type }}</td>
     <tr>
         <td>status</td>
-        <td><code>{{ task.status }}</code></td>
+        <td><code>{{ task.status.value }}</code></td>
     </tr>
     <tr>
         <td>created_at</td>
