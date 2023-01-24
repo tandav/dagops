@@ -129,11 +129,15 @@ def api_delete_all_tasks(
 async def read_tasks(
     request: Request,
     db: Session = Depends(get_db),
+    status: str | None = None,
     # skip: int = 0,
     # limit: int = 1000,
 ):
     # db_objects = task_crud.read_many(db, skip, limit)
-    db_objects = task_crud.read_many(db)
+    if status is None:
+        db_objects = task_crud.read_many(db)
+    else:
+        db_objects = task_crud.read_by_field(db, 'status', status)
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
     # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
@@ -241,9 +245,12 @@ def api_create_dag(
 @app.get('/dags/', response_class=HTMLResponse)
 async def read_dags(
     request: Request,
+    status: str | None = None,
     db: Session = Depends(get_db),
 ):
     db_objects = task_crud.read_by_field(db, 'dag_id', None)
+    if status is not None:
+        db_objects = [x for x in db_objects if x.status.value == status]
     db_objects = [x.to_dict() for x in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
