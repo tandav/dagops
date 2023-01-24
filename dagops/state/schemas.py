@@ -182,6 +182,11 @@ class WorkerCreate(BaseModel):
     maxtasks: int | None = None
 
 
+class WorkerUpdate(BaseModel):
+    name: str | None = None
+    maxtasks: int | None = None
+
+
 class Worker(WorkerCreate):
     id: str
     tasks: list[str]

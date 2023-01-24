@@ -44,7 +44,7 @@ class Daemon:
                 continue
             db_worker, = db_worker
             if db_worker.maxtasks != maxtasks:
-                worker_crud.update_by_id(self.db, db_worker.id, schemas.WorkerCreate(maxtasks=maxtasks))
+                worker_crud.update_by_id(self.db, db_worker.id, schemas.WorkerUpdate(maxtasks=maxtasks))
 
     async def handle_tasks_new(self):  # noqa: C901
         while True:
