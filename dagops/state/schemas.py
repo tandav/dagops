@@ -18,8 +18,11 @@ class WithDuration(BaseModel):
     def validate_duration(cls, values):
         started_at = values.get('started_at')
         stopped_at = values.get('stopped_at')
-        if started_at is not None and stopped_at is not None:
-            values['duration_seconds'] = (stopped_at - started_at).total_seconds()
+        if started_at is not None:
+            if stopped_at is not None:
+                values['duration_seconds'] = (stopped_at - started_at).total_seconds()
+            else:
+                values['duration_seconds'] = (datetime.datetime.now() - started_at).total_seconds()
         return values
 
 # =============================================================================
