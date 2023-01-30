@@ -14,6 +14,10 @@ bumpver:
 	# usage: make bumpver PART=minor
 	bumpver update --no-fetch --$(PART)
 
-.PHONY: create_db
-create_db:
+.PHONY: create
+create:
 	python -m dagops.state.database create
+
+.PHONY: drop
+drop:
+	python -m dagops.state.database drop
