@@ -1,6 +1,5 @@
 import uuid
 
-from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
@@ -35,8 +34,8 @@ class File(Base):
 
 task_to_upstream_tasks = Table(
     'task_to_upstream_tasks', Base.metadata,
-    Column('task_id', String, ForeignKey('task.id'), primary_key=True),
-    Column('upstream_id', String, ForeignKey('task.id'), primary_key=True),
+    Column('task_id', String, ForeignKey('task.id', ondelete='CASCADE'), primary_key=True),
+    Column('upstream_id', String, ForeignKey('task.id', ondelete='CASCADE'), primary_key=True),
 )
 
 
@@ -64,6 +63,8 @@ class Task(Base):
         primaryjoin=id == task_to_upstream_tasks.c.task_id,
         secondaryjoin=id == task_to_upstream_tasks.c.upstream_id,
         back_populates='downstream',
+        cascade='all,delete',
+        passive_deletes=True,
     )
     downstream = relationship(
         'Task',
@@ -71,6 +72,8 @@ class Task(Base):
         primaryjoin=id == task_to_upstream_tasks.c.upstream_id,
         secondaryjoin=id == task_to_upstream_tasks.c.task_id,
         back_populates='upstream',
+        cascade='all,delete',
+        passive_deletes=True,
     )
 
     def to_dict(self):
