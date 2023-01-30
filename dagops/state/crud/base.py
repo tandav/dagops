@@ -80,7 +80,7 @@ class CRUD:
             raise exceptions.HttpNotFound(f'No {self.model.__name__} with id {id} found')
         for key, value in obj.dict(exclude_unset=True).items():
             setattr(db_obj, key, value)
-        db.add(db_obj)
+        # db.add(db_obj) # TODO: is this needed?
         db.commit()
         db.refresh(db_obj)
         return db_obj

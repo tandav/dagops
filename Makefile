@@ -21,3 +21,7 @@ create:
 .PHONY: drop
 drop:
 	python -m dagops.state.database drop
+
+.PHONY: workers
+workers:
+	python -m dagops.worker

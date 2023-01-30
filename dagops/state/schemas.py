@@ -111,6 +111,7 @@ class TaskUpdate(BaseModel):
     output_data: dict | None = None
     worker_id: str | None = None
     running_worker_id: str | None = None
+    upstream: list[str] | None = None
 
 
 # =============================================================================

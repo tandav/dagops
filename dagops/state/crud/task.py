@@ -14,6 +14,7 @@ class TaskCRUD(CRUD):
         self,
         db: Session,
         task: TaskCreate,
+        commit: bool = True,
     ) -> models.Task:
         now = datetime.datetime.now()
         task_dict = task.dict()
@@ -28,7 +29,8 @@ class TaskCRUD(CRUD):
             updated_at=now,
             status=TaskStatus.PENDING,
         )
-
+        if not commit:
+            return db_task
         db.add(db_task)
         db.commit()
         db.refresh(db_task)

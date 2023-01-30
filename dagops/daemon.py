@@ -13,7 +13,6 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.state.crud.worker import worker_crud
 from dagops.task_status import TaskStatus
 
 
@@ -23,7 +22,6 @@ class Daemon:
         watch_directory: str,
         db: Session,
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
-        workers: dict[str, int] | None = None,
         batch: bool = False,
     ):
         self.watch_directory = Path(watch_directory)
@@ -31,20 +29,6 @@ class Daemon:
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
         self.batch = batch
-        self.prepare_workers(workers or constant.workers)
-
-    def prepare_workers(self, workers: dict[str, int] | None = None):
-        dummy_worker = worker_crud.read_by_field(self.db, 'name', 'dummy')
-        if len(dummy_worker) == 0:
-            worker_crud.create(self.db, schemas.WorkerCreate(name='dummy'))  # dummy worker for dags, todo try to remove
-        for worker_name, maxtasks in workers.items():
-            db_worker = worker_crud.read_by_field(self.db, 'name', worker_name)
-            if len(db_worker) == 0:
-                worker_crud.create(self.db, schemas.WorkerCreate(name=worker_name, maxtasks=maxtasks))
-                continue
-            db_worker, = db_worker
-            if db_worker.maxtasks != maxtasks:
-                worker_crud.update_by_id(self.db, db_worker.id, schemas.WorkerUpdate(maxtasks=maxtasks))
 
     async def handle_tasks_new(self):  # noqa: C901
         while True:
