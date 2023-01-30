@@ -152,8 +152,10 @@ async def read_task(
     db: Session = Depends(get_db),
 ):
     task = task_crud.read_by_id(db, task_id)
+    task_dict = task.to_dict()
+    task_dict['input_data']['worker_name'] = task_dict['worker_name']  # hack to pass validation, todo fix
     # task = schemas.Task.from_orm(task)
-    task = schemas.Task(**task.to_dict())
+    task = schemas.Task(**task_dict)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================
