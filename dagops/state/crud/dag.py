@@ -30,7 +30,7 @@ class DagCRUD:
         head_task = models.Task(
             id=uuid.uuid4().hex,
             task_type='dag',
-            worker=read_worker(db, 'dummy'),
+            worker=read_worker(db, 'dag'),
             created_at=now,
             updated_at=now,
             status=TaskStatus.PENDING,

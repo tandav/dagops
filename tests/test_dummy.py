@@ -1,2 +1,2 @@
-def test_dummy():
+def test_dag():
     assert True

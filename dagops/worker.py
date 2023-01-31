@@ -7,9 +7,9 @@ from dagops.state.crud.worker import worker_crud
 
 
 def prepare_workers(db: Session, workers: dict[str, int] | None = None):
-    dummy_worker = worker_crud.read_by_field(db, 'name', 'dummy')
-    if len(dummy_worker) == 0:
-        worker_crud.create(db, schemas.WorkerCreate(name='dummy'))  # dummy worker for dags, todo try to remove
+    dag_worker = worker_crud.read_by_field(db, 'name', 'dag')
+    if len(dag_worker) == 0:
+        worker_crud.create(db, schemas.WorkerCreate(name='dag'))  # dag worker for dags, todo try to remove
     for worker_name, maxtasks in workers.items():
         db_worker = worker_crud.read_by_field(db, 'name', worker_name)
         if len(db_worker) == 0:
