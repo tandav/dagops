@@ -353,11 +353,9 @@ def read_file(
     response_model=list[schemas.Worker],
 )
 def api_read_workers(
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_objects = worker_crud.read_many(db, skip, limit)
+    db_objects = [db_obj.to_dict() for db_obj in worker_crud.read_many(db)]
     return db_objects
 
 
@@ -383,11 +381,9 @@ def api_read_worker(
 )
 def read_workers(
     request: Request,
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_objects = worker_crud.read_many(db, skip, limit)
+    db_objects = worker_crud.read_many(db)
     return templates.TemplateResponse('workers.j2', {'request': request, 'workers': db_objects})
 
 
