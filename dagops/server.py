@@ -134,11 +134,14 @@ async def read_tasks(
     # limit: int = 1000,
 ):
     # db_objects = task_crud.read_many(db, skip, limit)
+    breakpoint()
     if status is None:
         db_objects = task_crud.read_many(db)
     else:
         db_objects = task_crud.read_by_field(db, 'status', status)
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
+    for db_obj in db_objects:
+        db_obj['input_data']['worker_name'] = db_obj['worker_name']  # hack to pass validation, todo fix
     # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
