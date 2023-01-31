@@ -159,7 +159,7 @@ class Daemon:
             files = [file for file in files if file.dag_id is None]
             if not self.batch:
                 for file in files:
-                    print('dag for file', f'{file.directory} / {file.file}', 'creating...')
+                    print(f'creating dag for file {file.directory}/{file.file}...')
                     dag_head_task = self.create_dag(file.file)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             elif files:
@@ -193,17 +193,17 @@ class Daemon:
 
     async def cancel_orphaned(self):
         orphaned = task_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        if not orphaned:
+            return
+        print(f'canceling {len(orphaned)} orphaned tasks...')
         for task in orphaned:
-            print('canceling orphaned task', task.id)
             now = datetime.datetime.now()
-            task_crud.update_by_id(
-                self.db, task.id, schemas.TaskUpdate(
-                    status=TaskStatus.CANCELED,
-                    stopped_at=now,
-                    updated_at=now,
-                    running_worker_id=None,
-                ),
-            )
+            task.status = TaskStatus.CANCELED
+            task.stopped_at = now
+            task.updated_at = now
+            task.running_worker_id = None
+        self.db.commit()
+        print(f'canceling {len(orphaned)} orphaned tasks... done')
 
     async def __call__(self):
         await self.cancel_orphaned()
