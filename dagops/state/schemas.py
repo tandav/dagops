@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 from pydantic import BaseModel
+from pydantic import Field
 from pydantic import root_validator
 
 from dagops.task_status import TaskStatus
@@ -51,7 +52,7 @@ TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
 
 
 class TaskCreate(WithWorkerName):
-    id: str | None = None
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     dag_id: str | None = None
     upstream: list[str] = []
     # dag_tasks: list[str] | None = None
@@ -74,12 +75,6 @@ class TaskCreate(WithWorkerName):
         if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
         input_data_schema.validate(values['input_data'])
-        return values
-
-    @root_validator()
-    def add_id(cls, values):
-        if values['id'] is None:
-            values['id'] = uuid.uuid4().hex
         return values
 
     # @root_validator
