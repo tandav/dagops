@@ -114,7 +114,7 @@ class CRUD:
         n_rows = (
             db
             .query(self.model)
-            .filter(self.model.id.in_(values))
+            .filter(getattr(self.model, field).in_(values))
             .delete()
         )
         if not_found_error and n_rows == 0:
