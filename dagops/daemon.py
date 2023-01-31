@@ -179,7 +179,7 @@ class Daemon:
                     up_to_date_files_paths.add(file.file)
                 else:
                     stale_files_ids.add(file.id)
-            file_crud.delete_many_by_ids(self.db, stale_files_ids)
+            file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
             file_crud.create_many(
                 self.db, [
                     schemas.FileCreate(
