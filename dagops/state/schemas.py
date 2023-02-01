@@ -33,7 +33,7 @@ class WithWorkerName(BaseModel):
     worker_name: str
 
 
-class ShellTaskInputData(WithWorkerName):
+class ShellTaskInputData(BaseModel):
     command: list[str]
     env: dict[str, str] | None = None
 
@@ -43,7 +43,11 @@ class ShellTaskInputData(WithWorkerName):
         return hash((command, env))
 
 
-InputDataDag = dict[ShellTaskInputData, list[ShellTaskInputData]]
+class TaskInfo(ShellTaskInputData, WithWorkerName):
+    pass
+
+
+InputDataDag = dict[TaskInfo, list[TaskInfo]]
 
 TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
     'shell': ShellTaskInputData,
@@ -63,17 +67,20 @@ class TaskCreate(WithWorkerName):
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
-        if 'task_type' not in values or values['task_type'] is None:
-            return values
-            # raise ValueError('task_type must be set')
+        # if 'task_type' not in values or values['task_type'] is None:
+        #     return values
+        # raise ValueError('task_type must be set')
         task_type = values['task_type']
-        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
-        if input_data_schema is None:
-            return values
-        if 'input_data' not in values:
-            raise ValueError('input_data must be set for task_type {task_type}')
         if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
+        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
+
+        if input_data_schema is None:
+            return values
+
+        if 'input_data' not in values:
+            raise ValueError('input_data must be set for task_type {task_type}')
+
         input_data_schema.validate(values['input_data'])
         return values
 
@@ -101,7 +108,7 @@ class Task(TaskCreate, WithDuration):
 class TaskUpdate(BaseModel):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
-    updated_at: datetime.datetime
+    # updated_at: datetime.datetime
     status: TaskStatus | None
     output_data: dict | None = None
     worker_id: str | None = None

@@ -132,16 +132,11 @@ async def read_tasks(
     # skip: int = 0,
     # limit: int = 1000,
 ):
-    # db_objects = task_crud.read_many(db, skip, limit)
     if status is None:
         db_objects = task_crud.read_many(db)
     else:
         db_objects = task_crud.read_by_field(db, 'status', status)
-    # breakpoint()
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
-    for db_obj in db_objects:
-        db_obj['input_data']['worker_name'] = db_obj['worker_name']  # hack to pass validation, todo fix
-    # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects})
@@ -155,7 +150,6 @@ async def read_task(
 ):
     task = task_crud.read_by_id(db, task_id)
     task_dict = task.to_dict()
-    task_dict['input_data']['worker_name'] = task_dict['worker_name']  # hack to pass validation, todo fix
     # task = schemas.Task.from_orm(task)
     task = schemas.Task(**task_dict)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
