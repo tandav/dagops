@@ -17,13 +17,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      # - name: install wheel
-      #   run: python3 -m pip install wheel
-
       - name: install dependencies
         run: python3 -m pip install .[dev]
 
       - name: test
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
         run: pytest
 
       - name: pre-commit

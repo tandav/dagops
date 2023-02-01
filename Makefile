@@ -28,3 +28,7 @@ workers:
 
 .PHONY: reinit
 reinit: drop create workers
+
+.PHONY: test
+test:
+	pytest -s -vv
