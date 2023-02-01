@@ -6,7 +6,7 @@ from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
 
 
-def prepare_workers(db: Session, workers: dict[str, int] | None = None):
+def prepare_workers(db: Session, workers: dict[str, int] = constant.workers):
     dag_worker = worker_crud.read_by_field(db, 'name', 'dag')
     if len(dag_worker) == 0:
         worker_crud.create(db, schemas.WorkerCreate(name='dag'))  # dag worker for dags, todo try to remove
@@ -22,4 +22,4 @@ def prepare_workers(db: Session, workers: dict[str, int] | None = None):
 
 if __name__ == '__main__':
     with get_db_cm() as db:
-        prepare_workers(db, constant.workers)
+        prepare_workers(db)
