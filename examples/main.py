@@ -42,13 +42,13 @@ def create_batch_dag(files: list[str]) -> InputDataDag:
 async def main():
     with get_db_cm() as db:
         daemon = Daemon(
-            watch_directory='records_tmp',
+            watch_directory='examples/records_tmp',
             db=db,
             create_dag_func=create_dag,
         )
 
         daemon2 = Daemon(
-            watch_directory='records_tmp2',
+            watch_directory='examples/records_tmp2',
             db=db,
             create_dag_func=create_batch_dag,
             batch=True,

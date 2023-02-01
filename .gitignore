@@ -1,5 +1,5 @@
 logs
-records_tmp
-records_tmp2
+examples/records_tmp
+examples/records_tmp2
 *.ipynb
 *.sqlite
