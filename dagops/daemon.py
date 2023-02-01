@@ -44,13 +44,13 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(
                                 status=TaskStatus.FAILED,
-                                updated_at=datetime.datetime.now(),
+                                updated_at=datetime.datetime.now(tz=datetime.UTC),
                                 running_worker_id=None,
                             ),
                         )
                         break
                 if all_upstream_success:
-                    now = datetime.datetime.now()
+                    now = datetime.datetime.now(tz=datetime.UTC)
                     if task.task_type == 'dag':
                         task_crud.update_by_id(
                             self.db,
@@ -92,7 +92,7 @@ class Daemon:
                 status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
 
                 task_id = self.aiotask_to_task_id[aiotask]
-                stopped_at = datetime.datetime.now()
+                stopped_at = datetime.datetime.now(tz=datetime.UTC)
 
                 task_crud.update_by_id(
                     self.db,
@@ -197,7 +197,7 @@ class Daemon:
             return
         print(f'canceling {len(orphaned)} orphaned tasks...')
         for task in orphaned:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(tz=datetime.UTC)
             task.status = TaskStatus.CANCELED
             task.stopped_at = now
             task.updated_at = now
