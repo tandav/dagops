@@ -11,6 +11,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -22,7 +34,8 @@ jobs:
 
       - name: test
         env:
-          DB_URL: ${{ secrets.DB_URL }}
+          # DB_URL: ${{ secrets.DB_URL }}
+          DB_URL: postgresql://postgres:postgres@postgres:5432/postgres
         run: pytest
 
       - name: pre-commit
