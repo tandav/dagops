@@ -1,6 +1,5 @@
 import uuid
 
-from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Enum
@@ -8,14 +7,13 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Table
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from dagops.task_status import TaskStatus
-
-
-def uuid_gen():
-    return uuid.uuid4().hex
 
 
 class Base(DeclarativeBase):
@@ -25,44 +23,45 @@ class Base(DeclarativeBase):
 class File(Base):
     __tablename__ = 'file'
 
-    id = Column(String, primary_key=True, default=uuid_gen)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     directory = Column(String, nullable=False)
     file = Column(String, nullable=False)
-    dag_id = Column(String, ForeignKey('task.id'), nullable=True)
+    dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
     dag = relationship('Task')
 
 
 task_to_upstream_tasks = Table(
     'task_to_upstream_tasks', Base.metadata,
-    Column('task_id', String, ForeignKey('task.id'), primary_key=True),
-    Column('upstream_id', String, ForeignKey('task.id'), primary_key=True),
+    Column('task_id', UUID, ForeignKey('task.id', ondelete='CASCADE'), primary_key=True),
+    Column('upstream_id', UUID, ForeignKey('task.id', ondelete='CASCADE'), primary_key=True),
 )
 
 
 class Task(Base):
     __tablename__ = 'task'
 
-    id = Column(String, primary_key=True)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     task_type = Column(String, nullable=True)
-    dag_id = Column(String, ForeignKey('task.id'), nullable=True)
-    worker_id = Column(String, ForeignKey('worker.id'), nullable=True)
+    dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
+    worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     worker = relationship('Worker', back_populates='tasks', foreign_keys=[worker_id])
-    running_worker_id = Column(String, ForeignKey('worker.id'), nullable=True)
+    running_worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     running_worker = relationship('Worker', back_populates='running_tasks', foreign_keys=[running_worker_id])
-
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
     started_at = Column(DateTime, nullable=True)
     stopped_at = Column(DateTime, nullable=True)
     status = Column(Enum(TaskStatus), nullable=False)
-    input_data = Column(JSON, nullable=True)
-    output_data = Column(JSON, nullable=True)
+    input_data = Column(JSONB, nullable=True)
+    output_data = Column(JSONB, nullable=True)
     upstream = relationship(
         'Task',
         secondary=task_to_upstream_tasks,
         primaryjoin=id == task_to_upstream_tasks.c.task_id,
         secondaryjoin=id == task_to_upstream_tasks.c.upstream_id,
         back_populates='downstream',
+        cascade='all,delete',
+        passive_deletes=True,
     )
     downstream = relationship(
         'Task',
@@ -70,6 +69,8 @@ class Task(Base):
         primaryjoin=id == task_to_upstream_tasks.c.upstream_id,
         secondaryjoin=id == task_to_upstream_tasks.c.task_id,
         back_populates='upstream',
+        cascade='all,delete',
+        passive_deletes=True,
     )
 
     def to_dict(self):
@@ -93,7 +94,7 @@ class Task(Base):
 
 class Worker(Base):
     __tablename__ = 'worker'
-    id = Column(String, primary_key=True, default=uuid_gen)
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     maxtasks = Column(Integer, nullable=True)
     tasks = relationship('Task', back_populates='worker', foreign_keys=[Task.worker_id])

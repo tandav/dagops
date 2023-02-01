@@ -106,10 +106,10 @@ def api_delete_task(
     task_id: str,
     db: Session = Depends(get_db),
 ):
-    db_obj = task_crud.delete_by_id(db, task_id)
-    if db_obj is None:
+    n_rows = task_crud.delete_by_field(db, 'id', task_id)
+    if n_rows == 0:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='task not found')
-    return db_obj
+    return n_rows
 
 
 @app.delete(
@@ -118,8 +118,7 @@ def api_delete_task(
 def api_delete_all_tasks(
     db: Session = Depends(get_db),
 ):
-    db_objs = task_crud.delete_all(db)
-    return db_objs
+    return task_crud.delete_all(db)
 
 
 # ------------------------------------------------------------------------------
@@ -133,13 +132,11 @@ async def read_tasks(
     # skip: int = 0,
     # limit: int = 1000,
 ):
-    # db_objects = task_crud.read_many(db, skip, limit)
     if status is None:
         db_objects = task_crud.read_many(db)
     else:
         db_objects = task_crud.read_by_field(db, 'status', status)
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
-    # db_objects = [schemas.Task.from_orm(db_obj) for db_obj in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
     return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects})
@@ -152,8 +149,9 @@ async def read_task(
     db: Session = Depends(get_db),
 ):
     task = task_crud.read_by_id(db, task_id)
+    task_dict = task.to_dict()
     # task = schemas.Task.from_orm(task)
-    task = schemas.Task(**task.to_dict())
+    task = schemas.Task(**task_dict)
     return templates.TemplateResponse('task.j2', {'request': request, 'task': task})
 
 # =============================================================================
@@ -201,45 +199,7 @@ def api_create_dag(
     return db_obj
 
 
-# @app.patch(
-#     '/api/dags/{dag_id}',
-# )
-# def api_update_dag(
-#     dag_id: str,
-#     dag: schemas.DagUpdate,
-#     db: Session = Depends(get_db),
-# ):
-#     db_obj = dag_crud.update_by_id(db, dag_id, dag)
-#     if db_obj is None:
-#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-#     db_obj = db_obj.to_dict()
-#     return db_obj
-
-
-# @app.delete(
-#     '/api/dags/{dag_id}',
-# )
-# def api_delete_dag(
-#     dag_id: str,
-#     db: Session = Depends(get_db),
-# ):
-#     db_obj = dag_crud.delete_by_id(db, dag_id)
-#     if db_obj is None:
-#         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='dag not found')
-#     db_obj = db_obj.to_dict()
-#     return db_obj
-
-
-# @app.delete(
-#     '/api/dags/',
-# )
-# def api_delete_all_dags(
-#     db: Session = Depends(get_db),
-# ):
-#     db_objs = dag_crud.delete_all(db)
-#     return db_objs
-
-# # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 @app.get('/dags/', response_class=HTMLResponse)
@@ -335,10 +295,10 @@ def api_delete_file(
     file_id: str,
     db: Session = Depends(get_db),
 ):
-    db_obj = file_crud.delete_by_id(db, file_id)
-    if db_obj is None:
+    n_rows = file_crud.delete_by_field(db, 'id', file_id)
+    if n_rows == 0:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='file not found')
-    return db_obj
+    return n_rows
 
 
 @app.delete(
@@ -347,8 +307,7 @@ def api_delete_file(
 def api_delete_all_files(
     db: Session = Depends(get_db),
 ):
-    db_objs = file_crud.delete_all(db)
-    return db_objs
+    return file_crud.delete_all(db)
 
 
 # ------------------------------------------------------------------------------
@@ -388,11 +347,9 @@ def read_file(
     response_model=list[schemas.Worker],
 )
 def api_read_workers(
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_objects = worker_crud.read_many(db, skip, limit)
+    db_objects = [db_obj.to_dict() for db_obj in worker_crud.read_many(db)]
     return db_objects
 
 
@@ -418,11 +375,9 @@ def api_read_worker(
 )
 def read_workers(
     request: Request,
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    db_objects = worker_crud.read_many(db, skip, limit)
+    db_objects = worker_crud.read_many(db)
     return templates.TemplateResponse('workers.j2', {'request': request, 'workers': db_objects})
 
 

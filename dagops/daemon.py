@@ -13,7 +13,6 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.state.crud.worker import worker_crud
 from dagops.task_status import TaskStatus
 
 
@@ -23,7 +22,6 @@ class Daemon:
         watch_directory: str,
         db: Session,
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
-        workers: dict[str, int] | None = None,
         batch: bool = False,
     ):
         self.watch_directory = Path(watch_directory)
@@ -31,20 +29,6 @@ class Daemon:
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
         self.batch = batch
-        self.prepare_workers(workers or constant.workers)
-
-    def prepare_workers(self, workers: dict[str, int] | None = None):
-        dummy_worker = worker_crud.read_by_field(self.db, 'name', 'dummy')
-        if len(dummy_worker) == 0:
-            worker_crud.create(self.db, schemas.WorkerCreate(name='dummy'))  # dummy worker for dags, todo try to remove
-        for worker_name, maxtasks in workers.items():
-            db_worker = worker_crud.read_by_field(self.db, 'name', worker_name)
-            if len(db_worker) == 0:
-                worker_crud.create(self.db, schemas.WorkerCreate(name=worker_name, maxtasks=maxtasks))
-                continue
-            db_worker, = db_worker
-            if db_worker.maxtasks != maxtasks:
-                worker_crud.update_by_id(self.db, db_worker.id, schemas.WorkerUpdate(maxtasks=maxtasks))
 
     async def handle_tasks_new(self):  # noqa: C901
         while True:
@@ -175,7 +159,7 @@ class Daemon:
             files = [file for file in files if file.dag_id is None]
             if not self.batch:
                 for file in files:
-                    print('dag for file', f'{file.directory} / {file.file}', 'creating...')
+                    print(f'creating dag for file {file.directory}/{file.file}...')
                     dag_head_task = self.create_dag(file.file)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             elif files:
@@ -195,7 +179,7 @@ class Daemon:
                     up_to_date_files_paths.add(file.file)
                 else:
                     stale_files_ids.add(file.id)
-            file_crud.delete_many_by_ids(self.db, stale_files_ids)
+            file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
             file_crud.create_many(
                 self.db, [
                     schemas.FileCreate(
@@ -208,18 +192,18 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphaned(self):
-        orphaned = task_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        orphaned = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
+        if not orphaned:
+            return
+        print(f'canceling {len(orphaned)} orphaned tasks...')
         for task in orphaned:
-            print('canceling orphaned task', task.id)
             now = datetime.datetime.now()
-            task_crud.update_by_id(
-                self.db, task.id, schemas.TaskUpdate(
-                    status=TaskStatus.CANCELED,
-                    stopped_at=now,
-                    updated_at=now,
-                    running_worker_id=None,
-                ),
-            )
+            task.status = TaskStatus.CANCELED
+            task.stopped_at = now
+            task.updated_at = now
+            task.running_worker_id = None
+        self.db.commit()
+        print(f'canceling {len(orphaned)} orphaned tasks... done')
 
     async def __call__(self):
         await self.cancel_orphaned()

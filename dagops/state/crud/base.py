@@ -1,3 +1,4 @@
+from typing import Any
 from typing import Type
 
 from sqlalchemy.orm import Session
@@ -28,15 +29,15 @@ class CRUD:
         self,
         db: Session,
         field: str,
-        values: list[str],
-        not_found_ok: bool = True,
+        values: list[Any],
+        not_found_error: bool = False,
     ) -> list[Base]:
         if len(values) == 0:
             return []
         query = db.query(self.model)
         query = query.filter(getattr(self.model, field).in_(values))
         db_objs = query.all()
-        if not_found_ok:
+        if not not_found_error:
             return db_objs
         if len(db_objs) != len(values):
             raise exceptions.HttpNotFound(
@@ -51,7 +52,7 @@ class CRUD:
         self,
         db: Session,
         field: str,
-        value: str,
+        value: Any,
     ) -> list[Base]:
         query = db.query(self.model)
         query = query.filter(getattr(self.model, field) == value)
@@ -80,31 +81,51 @@ class CRUD:
             raise exceptions.HttpNotFound(f'No {self.model.__name__} with id {id} found')
         for key, value in obj.dict(exclude_unset=True).items():
             setattr(db_obj, key, value)
-        db.add(db_obj)
+        # db.add(db_obj) # TODO: is this needed?
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
-    def delete_by_id(self, db: Session, id: int) -> Base:
-        db_obj = self.read_by_id(db, id)
-        if db_obj is None:
-            return None
-        db.delete(db_obj)
+    def delete_by_field(
+        self,
+        db: Session,
+        field: str,
+        value: str,
+        not_found_error: bool = False,
+    ) -> int:
+        n_rows = (
+            db
+            .query(self.model)
+            .filter(getattr(self.model, field) == value)
+            .delete()
+        )
+        if not_found_error and n_rows == 0:
+            raise exceptions.HttpNotFound(f'No {self.model.__name__} with {field} {value} found')
         db.commit()
-        return db_obj
+        return n_rows
 
-    def delete_many_by_ids(self, db: Session, ids: list[int]) -> list[Base]:
-        query = db.query(self.model)
-        query = query.filter(self.model.id.in_(ids))
-        query.delete(synchronize_session=False)
+    def delete_by_field_isin(
+        self,
+        db: Session,
+        field: str,
+        values: list[Any],
+        not_found_error: bool = False,
+    ) -> list[Base]:
+        n_rows = (
+            db
+            .query(self.model)
+            .filter(getattr(self.model, field).in_(values))
+            .delete()
+        )
+        if not_found_error and n_rows == 0:
+            raise exceptions.HttpNotFound(f'No {self.model.__name__} with {field} in {values} found')
         db.commit()
-        return query.all()
+        return n_rows
 
     def delete_all(
         self,
         db: Session,
-    ) -> list[Base]:
-        query = db.query(self.model)
-        query.delete()
+    ) -> int:
+        n_rows = db.query(self.model).delete()
         db.commit()
-        return query.all()
+        return n_rows

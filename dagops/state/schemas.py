@@ -1,7 +1,9 @@
 import datetime
 import uuid
+from uuid import UUID
 
 from pydantic import BaseModel
+from pydantic import Field
 from pydantic import root_validator
 
 from dagops.task_status import TaskStatus
@@ -32,7 +34,7 @@ class WithWorkerName(BaseModel):
     worker_name: str
 
 
-class ShellTaskInputData(WithWorkerName):
+class ShellTaskInputData(BaseModel):
     command: list[str]
     env: dict[str, str] | None = None
 
@@ -42,7 +44,11 @@ class ShellTaskInputData(WithWorkerName):
         return hash((command, env))
 
 
-InputDataDag = dict[ShellTaskInputData, list[ShellTaskInputData]]
+class TaskInfo(ShellTaskInputData, WithWorkerName):
+    pass
+
+
+InputDataDag = dict[TaskInfo, list[TaskInfo]]
 
 TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
     'shell': ShellTaskInputData,
@@ -51,35 +57,32 @@ TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
 
 
 class TaskCreate(WithWorkerName):
-    id: str | None = None
-    dag_id: str | None = None
-    upstream: list[str] = []
+    id: UUID = Field(default_factory=uuid.uuid4)
+    dag_id: UUID | None = None
+    upstream: list[UUID] = []
     # dag_tasks: list[str] | None = None
     # is_dag_head: bool = False
     task_type: str | None = None
     input_data: dict | None = None
-    worker_id: str | None = None
+    worker_id: UUID | None = None
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
-        if 'task_type' not in values or values['task_type'] is None:
-            return values
-            # raise ValueError('task_type must be set')
+        # if 'task_type' not in values or values['task_type'] is None:
+        #     return values
+        # raise ValueError('task_type must be set')
         task_type = values['task_type']
-        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
-        if input_data_schema is None:
-            return values
-        if 'input_data' not in values:
-            raise ValueError('input_data must be set for task_type {task_type}')
         if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
-        input_data_schema.validate(values['input_data'])
-        return values
+        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
 
-    @root_validator()
-    def add_id(cls, values):
-        if values['id'] is None:
-            values['id'] = uuid.uuid4().hex
+        if input_data_schema is None:
+            return values
+
+        if 'input_data' not in values:
+            raise ValueError('input_data must be set for task_type {task_type}')
+
+        input_data_schema.validate(values['input_data'])
         return values
 
     # @root_validator
@@ -90,13 +93,13 @@ class TaskCreate(WithWorkerName):
 
 
 class Task(TaskCreate, WithDuration):
-    dag_id: str | None
+    dag_id: UUID | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus
-    downstream: list[str] = []
+    downstream: list[UUID] = []
     output_data: dict | None = None
 
     class Config:
@@ -106,11 +109,12 @@ class Task(TaskCreate, WithDuration):
 class TaskUpdate(BaseModel):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
-    updated_at: datetime.datetime
+    # updated_at: datetime.datetime
     status: TaskStatus | None
     output_data: dict | None = None
-    worker_id: str | None = None
-    running_worker_id: str | None = None
+    worker_id: UUID | None = None
+    running_worker_id: UUID | None = None
+    upstream: list[UUID] | None = None
 
 
 # =============================================================================
@@ -165,11 +169,11 @@ class FileCreate(BaseModel):
 
 
 class FileUpdate(BaseModel):
-    dag_id: str | None
+    dag_id: UUID | None
 
 
 class File(FileCreate, FileUpdate):
-    id: str
+    id: UUID
 
     class Config:
         orm_mode = True
@@ -188,9 +192,9 @@ class WorkerUpdate(BaseModel):
 
 
 class Worker(WorkerCreate):
-    id: str
-    tasks: list[str]
-    running_tasks: list[str]
+    id: UUID
+    tasks: list[UUID]
+    running_tasks: list[UUID]
 
     class Config:
         orm_mode = True
