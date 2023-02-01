@@ -22,6 +22,8 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 5432:5432
 
     steps:
       - uses: actions/checkout@v3
@@ -35,7 +37,8 @@ jobs:
       - name: test
         env:
           # DB_URL: ${{ secrets.DB_URL }}
-          DB_URL: postgresql://postgres:postgres@postgres:5432/postgres
+          # DB_URL: postgresql://postgres:postgres@postgres:5432/postgres
+          DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest
 
       - name: pre-commit
