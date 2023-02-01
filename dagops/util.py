@@ -56,8 +56,9 @@ def format_time(
     absolute: bool = False,
     pad: bool = False,
 ) -> str:
-    if absolute or (datetime.datetime.now() - t).days > 30:
+    if absolute or (datetime.datetime.now(tz=datetime.UTC) - t).days > 30:
         return t.strftime('%Y %b %d %H:%M')
+    t = datetime.datetime.fromtimestamp(t.timestamp())
     out = humanize.naturaltime(t)
     if pad:
         out = out.rjust(17)
