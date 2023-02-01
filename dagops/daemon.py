@@ -29,6 +29,7 @@ class Daemon:
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
         self.batch = batch
+        self.n_all_done = 0
 
     async def handle_tasks_new(self):  # noqa: C901
         while True:
@@ -82,6 +83,12 @@ class Daemon:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
 
             if not self.aiotask_to_task_id:
+                if MAX_N_ALL_DONE := os.environ.get('MAX_N_ALL_DONE'):
+                    if self.n_all_done >= int(MAX_N_ALL_DONE):
+                        print('MAX_N_ALL_DONE reached, exiting')
+                        raise SystemExit
+                    else:
+                        self.n_all_done += 1
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
 

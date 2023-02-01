@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 
 from dagops.daemon import Daemon
@@ -8,11 +9,14 @@ from dagops.state.schemas import TaskInfo
 
 
 def create_dag(file: str) -> InputDataDag:
-    command = [sys.executable, '-u', 'examples/write_to_mongo.py']
-    a = TaskInfo(command=command, env={'TASK_NAME': file, 'SUBTASK': 'a'}, worker_name='cpu')
-    b = TaskInfo(command=command, env={'TASK_NAME': file, 'SUBTASK': 'b'}, worker_name='cpu')
-    c = TaskInfo(command=command, env={'TASK_NAME': file, 'SUBTASK': 'c'}, worker_name='cpu')
-    d = TaskInfo(command=command, env={'TASK_NAME': file, 'SUBTASK': 'd'}, worker_name='cpu')
+    command = [sys.executable, '-u', 'examples/long_command.py']
+    common_env = {'TASK_NAME': file}
+    if N_ITERATIONS := os.environ.get('N_ITERATIONS'):
+        common_env['N_ITERATIONS'] = N_ITERATIONS
+    a = TaskInfo(command=command, env=common_env | {'SUBTASK': 'a'}, worker_name='cpu')
+    b = TaskInfo(command=command, env=common_env | {'SUBTASK': 'b'}, worker_name='cpu')
+    c = TaskInfo(command=command, env=common_env | {'SUBTASK': 'c'}, worker_name='cpu')
+    d = TaskInfo(command=command, env=common_env | {'SUBTASK': 'd'}, worker_name='cpu')
     e = TaskInfo(command=['ls'], worker_name='cpu')
     graph = {
         a: [],

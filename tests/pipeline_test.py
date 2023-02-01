@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from unittest import mock
+
 import pytest
 
 from dagops.state import database
@@ -16,4 +21,10 @@ def db():
 
 
 def test_pipeline(db):
-    pass
+    with mock.patch.dict(
+        os.environ, {
+            'N_ITERATIONS': '1',
+            'MAX_N_ALL_DONE': '10',
+        },
+    ):
+        subprocess.check_call([sys.executable, 'examples/main.py'])
