@@ -192,7 +192,7 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphaned(self):
-        orphaned = task_crud.read_by_field_isin(self.db, 'status', [TaskStatus.PENDING, TaskStatus.RUNNING])
+        orphaned = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
         if not orphaned:
             return
         print(f'canceling {len(orphaned)} orphaned tasks...')
