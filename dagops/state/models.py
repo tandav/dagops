@@ -10,6 +10,7 @@ from sqlalchemy import Table
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from dagops.task_status import TaskStatus
 
@@ -50,8 +51,8 @@ class Task(Base):
     running_worker_id = Column(String, ForeignKey('worker.id'), nullable=True)
     running_worker = relationship('Worker', back_populates='running_tasks', foreign_keys=[running_worker_id])
 
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
     started_at = Column(DateTime, nullable=True)
     stopped_at = Column(DateTime, nullable=True)
     status = Column(Enum(TaskStatus), nullable=False)
