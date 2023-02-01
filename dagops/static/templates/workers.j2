@@ -13,7 +13,7 @@
 </thead>
 {% for worker in workers %}
     <tr>
-        <td><a href="/workers/{{ worker.id }}"><code>{{ worker.id|truncate(8, end='') }}</code></a></td>
+        <td><a href="/workers/{{ worker.id }}"><code>{{ worker.id|string|truncate(8, end='') }}</code></a></td>
         <td>{{ worker.name }}</td>
         <td>{{ worker.maxtasks }}</td>
         <td>{{ worker.running_tasks | length}}</td>

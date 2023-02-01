@@ -25,10 +25,10 @@
 <tbody>
 {% for task in tasks %}
     <tr>
-        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|truncate(8, end='') }}</code></a></td>
+        <td><a href="/tasks/{{ task.id }}"><code>{{ task.id|string|truncate(8, end='') }}</code></a></td>
         <td>
             {% if task.dag_id is not none %}
-            <a href="/tasks/{{ task.dag_id }}"><code>{{ task.dag_id|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a>
+            <a href="/tasks/{{ task.dag_id }}"><code>{{ task.dag_id|string|truncate(8, end='') if task.dag_id is not none else 'NULL' }}</code></a>
             {% else %}
             <code>NULL</code>
             {% endif %}

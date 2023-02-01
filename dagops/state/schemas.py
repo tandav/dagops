@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -56,14 +57,14 @@ TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
 
 
 class TaskCreate(WithWorkerName):
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    dag_id: str | None = None
-    upstream: list[str] = []
+    id: UUID = Field(default_factory=uuid.uuid4)
+    dag_id: UUID | None = None
+    upstream: list[UUID] = []
     # dag_tasks: list[str] | None = None
     # is_dag_head: bool = False
     task_type: str | None = None
     input_data: dict | None = None
-    worker_id: str | None = None
+    worker_id: UUID | None = None
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
@@ -92,13 +93,13 @@ class TaskCreate(WithWorkerName):
 
 
 class Task(TaskCreate, WithDuration):
-    dag_id: str | None
+    dag_id: UUID | None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
     status: TaskStatus
-    downstream: list[str] = []
+    downstream: list[UUID] = []
     output_data: dict | None = None
 
     class Config:
@@ -111,9 +112,9 @@ class TaskUpdate(BaseModel):
     # updated_at: datetime.datetime
     status: TaskStatus | None
     output_data: dict | None = None
-    worker_id: str | None = None
-    running_worker_id: str | None = None
-    upstream: list[str] | None = None
+    worker_id: UUID | None = None
+    running_worker_id: UUID | None = None
+    upstream: list[UUID] | None = None
 
 
 # =============================================================================
@@ -168,11 +169,11 @@ class FileCreate(BaseModel):
 
 
 class FileUpdate(BaseModel):
-    dag_id: str | None
+    dag_id: UUID | None
 
 
 class File(FileCreate, FileUpdate):
-    id: str
+    id: UUID
 
     class Config:
         orm_mode = True
@@ -191,9 +192,9 @@ class WorkerUpdate(BaseModel):
 
 
 class Worker(WorkerCreate):
-    id: str
-    tasks: list[str]
-    running_tasks: list[str]
+    id: UUID
+    tasks: list[UUID]
+    running_tasks: list[UUID]
 
     class Config:
         orm_mode = True
