@@ -25,3 +25,6 @@ drop:
 .PHONY: workers
 workers:
 	python -m dagops.worker
+
+.PHONY: reinit
+reinit: drop create workers

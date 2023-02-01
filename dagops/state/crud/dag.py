@@ -1,6 +1,5 @@
 import functools
 import graphlib
-import uuid
 
 from sqlalchemy.orm import Session
 
@@ -26,7 +25,6 @@ class DagCRUD:
     ) -> models.Task:
 
         head_task = models.Task(
-            id=uuid.uuid4().hex,
             task_type='dag',
             worker=read_worker(db, 'dag'),
             status=TaskStatus.PENDING,
@@ -37,7 +35,6 @@ class DagCRUD:
         for task_input_data_id in graphlib.TopologicalSorter(dag.graph).static_order():
             input_data = dag.tasks_input_data[task_input_data_id]
             db_task = models.Task(
-                id=uuid.uuid4().hex,
                 task_type=dag.task_type,
                 input_data=input_data,
                 worker=read_worker(db, input_data.pop('worker_name')),
