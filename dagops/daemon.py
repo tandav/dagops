@@ -32,6 +32,7 @@ class Daemon:
         self.batch = batch
         self.redis = redis.from_url(os.environ['REDIS_URL'])
         self.files_channel = f'files:{self.watch_directory}'
+        self.tasks_channel = f'tasks:{self.watch_directory}'
         self.aio_tasks_channel = f'aio_tasks:{self.watch_directory}'
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
             self.max_n_success = int(MAX_N_SUCCESS)
@@ -39,7 +40,11 @@ class Daemon:
             self.max_n_success = None
 
     async def handle_tasks(self):  # noqa: C901
+        pubsub = self.redis.pubsub()
+        await pubsub.subscribe(self.tasks_channel)
         while True:
+            message = await pubsub.get_message(timeout=None)
+            print(message)
             for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
                 all_upstream_success = True
                 for u in task.upstream:
@@ -56,6 +61,7 @@ class Daemon:
                                 running_worker_id=None,
                             ),
                         )
+                        await self.redis.publish(self.tasks_channel, str(task.id))
                         break
                 if all_upstream_success:
                     now = datetime.datetime.now(tz=datetime.UTC)
@@ -70,6 +76,7 @@ class Daemon:
                                 running_worker_id=None,
                             ),
                         )
+                        await self.redis.publish(self.tasks_channel, str(task.id))
                     elif task.task_type == 'shell':
                         if len(task.worker.running_tasks) >= task.worker.maxtasks:
                             print(f'worker {task.worker.name} is busy, skipping task {task.id} {len(task.worker.running_tasks)=}')
@@ -85,6 +92,7 @@ class Daemon:
                             ),
                         )
                         self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
+                        await self.redis.publish(self.tasks_channel, str(task.id))
                         await self.redis.publish(self.aio_tasks_channel, str(task.id))
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
