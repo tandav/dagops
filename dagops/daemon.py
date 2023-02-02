@@ -198,22 +198,22 @@ class Daemon:
             )
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    async def cancel_orphaned(self):
-        orphaned = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
-        if not orphaned:
+    async def cancel_orphans(self):
+        orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
+        if not orphans:
             return
-        print(f'canceling {len(orphaned)} orphaned tasks...')
-        for task in orphaned:
+        print(f'canceling {len(orphans)} orphans tasks...')
+        for task in orphans:
             now = datetime.datetime.now(tz=datetime.UTC)
             task.status = TaskStatus.CANCELED
             task.stopped_at = now
             task.updated_at = now
             task.running_worker_id = None
         self.db.commit()
-        print(f'canceling {len(orphaned)} orphaned tasks... done')
+        print(f'canceling {len(orphans)} orphans tasks... done')
 
     async def __call__(self):
-        await self.cancel_orphaned()
+        await self.cancel_orphans()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.do_watch_directory())
             tg.create_task(self.update_files_dags())
