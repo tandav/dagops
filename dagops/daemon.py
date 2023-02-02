@@ -193,9 +193,12 @@ class Daemon:
                 for file in files:
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
 
-    async def do_watch_directory(self):
+    async def do_watch_directory(
+        self,
+        exclude: frozenset[str] = frozenset({'.DS_Store'}),
+    ) -> None:
         while True:
-            files = set(await aiofiles.os.listdir(self.watch_directory))
+            files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
             stale_files_ids = set()
             up_to_date_files_paths = set()
             for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
