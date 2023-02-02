@@ -31,8 +31,8 @@ class Daemon:
         self.aiotask_to_task_id = {}
         self.batch = batch
         self.redis = redis.from_url(os.environ['REDIS_URL'])
-        self.files_channel = f'{self.watch_directory}:files'
-        self.aio_tasks_channel = f'{self.watch_directory}:aio_tasks'
+        self.files_channel = f'files:{self.watch_directory}'
+        self.aio_tasks_channel = f'aio_tasks:{self.watch_directory}'
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
             self.max_n_success = int(MAX_N_SUCCESS)
         else:
@@ -225,7 +225,7 @@ class Daemon:
                         for file in new_files
                     ],
                 )
-                await self.redis.publish(self.files_channel, 'updated')
+                await self.redis.publish(self.files_channel, str(len(new_files)))
             else:
                 await asyncio.sleep(constant.SLEEP_TIME)
 
