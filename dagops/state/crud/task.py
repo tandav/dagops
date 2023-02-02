@@ -27,5 +27,11 @@ class TaskCRUD(CRUD):
         db.refresh(db_task)
         return db_task
 
+    def all_success(self, db: Session) -> bool:
+        return not db.query(models.Task).filter(models.Task.status != TaskStatus.SUCCESS).first()
+
+    def n_success(self, db: Session) -> int:
+        return db.query(models.Task).filter(models.Task.status == TaskStatus.SUCCESS).count()
+
 
 task_crud = TaskCRUD(models.Task)

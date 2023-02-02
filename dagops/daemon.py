@@ -30,11 +30,14 @@ class Daemon:
         self.create_dag_func = create_dag_func
         self.aiotask_to_task_id = {}
         self.batch = batch
-        self.n_all_done = 0
         self.redis = redis.from_url(os.environ['REDIS_URL'])
         self.files_channel = f'{self.watch_directory}:files'
+        if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
+            self.max_n_success = int(MAX_N_SUCCESS)
+        else:
+            self.max_n_success = None
 
-    async def handle_tasks_new(self):  # noqa: C901
+    async def handle_tasks(self):  # noqa: C901
         while True:
             for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
                 all_upstream_success = True
@@ -85,16 +88,23 @@ class Daemon:
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
 
+            if self.max_n_success is not None:
+                n_success = task_crud.n_success(self.db)
+                print(f'{n_success=} / {self.max_n_success=}')
+                if n_success == self.max_n_success:
+                    print('MAX_N_SUCCESS reached, exiting')
+                    for task in asyncio.all_tasks():
+                        task.cancel()
+                    raise SystemExit
+                elif n_success > self.max_n_success:
+                    raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
+            await asyncio.sleep(constant.SLEEP_TIME)
+
+    async def handle_aio_tasks(self):  # noqa: C901
+        while True:
             if not self.aiotask_to_task_id:
-                if MAX_N_ALL_DONE := os.environ.get('MAX_N_ALL_DONE'):
-                    if self.n_all_done >= int(MAX_N_ALL_DONE):
-                        print('MAX_N_ALL_DONE reached, exiting')
-                        raise SystemExit
-                    else:
-                        self.n_all_done += 1
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-
             done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             for aiotask in done:
                 p = aiotask.result()
@@ -231,4 +241,5 @@ class Daemon:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self.do_watch_directory())
             tg.create_task(self.update_files_dags())
-            tg.create_task(self.handle_tasks_new())
+            tg.create_task(self.handle_tasks())
+            tg.create_task(self.handle_aio_tasks())
