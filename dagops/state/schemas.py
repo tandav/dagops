@@ -60,17 +60,12 @@ class TaskCreate(WithWorkerName):
     id: UUID = Field(default_factory=uuid.uuid4)
     dag_id: UUID | None = None
     upstream: list[UUID] = []
-    # dag_tasks: list[str] | None = None
-    # is_dag_head: bool = False
     task_type: str | None = None
     input_data: dict | None = None
     worker_id: UUID | None = None
 
     @root_validator(pre=True)
     def validate_task_type_and_input_data(cls, values):
-        # if 'task_type' not in values or values['task_type'] is None:
-        #     return values
-        # raise ValueError('task_type must be set')
         task_type = values['task_type']
         if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
             raise ValueError(f'unsupported task type {task_type}')
@@ -84,12 +79,6 @@ class TaskCreate(WithWorkerName):
 
         input_data_schema.validate(values['input_data'])
         return values
-
-    # @root_validator
-    # def validate_dag_tasks(cls, values):
-    #     if values.get('is_dag_head') and values.get('dag_tasks') is None:
-    #         raise ValueError('dag_tasks must be set for dag head')
-    #     return values
 
 
 class Task(TaskCreate, WithDuration):
