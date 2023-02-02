@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 import aiofiles.os
+import redis.asyncio as redis
 from sqlalchemy.orm import Session
 
 from dagops import constant
@@ -30,6 +31,8 @@ class Daemon:
         self.aiotask_to_task_id = {}
         self.batch = batch
         self.n_all_done = 0
+        self.redis = redis.from_url(os.environ['REDIS_URL'])
+        self.files_channel = f'{self.watch_directory}:files'
 
     async def handle_tasks_new(self):  # noqa: C901
         while True:
@@ -161,7 +164,12 @@ class Daemon:
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
+        p = self.redis.pubsub()
+        await p.subscribe(self.files_channel)
         while True:
+            message = await p.get_message(timeout=None)
+            print(f'{self.files_channel} message:', message)
+
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
             if not self.batch:
@@ -174,7 +182,6 @@ class Daemon:
                 dag_head_task = self.create_dag([file.file for file in files])
                 for file in files:
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
-            await asyncio.sleep(constant.SLEEP_TIME)
 
     async def do_watch_directory(self):
         while True:
@@ -186,17 +193,24 @@ class Daemon:
                     up_to_date_files_paths.add(file.file)
                 else:
                     stale_files_ids.add(file.id)
-            file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
-            file_crud.create_many(
-                self.db, [
-                    schemas.FileCreate(
-                        directory=str(self.watch_directory),
-                        file=file,
-                    )
-                    for file in files - up_to_date_files_paths
-                ],
-            )
-            await asyncio.sleep(constant.SLEEP_TIME)
+            if stale_files_ids:
+                print(f'deleting {len(stale_files_ids)} stale files...')
+                file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
+            new_files = files - up_to_date_files_paths
+            if new_files:
+                print(f'creating {len(new_files)} new files...')
+                file_crud.create_many(
+                    self.db, [
+                        schemas.FileCreate(
+                            directory=str(self.watch_directory),
+                            file=file,
+                        )
+                        for file in new_files
+                    ],
+                )
+                await self.redis.publish(self.files_channel, 'updated')
+            else:
+                await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphans(self):
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
