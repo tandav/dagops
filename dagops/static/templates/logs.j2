@@ -2,11 +2,21 @@
 {% block title %}logs{% endblock %}
 {% block content %}
 <h1>logs</h1>
-<ul>
-    {% for log in logs %}
-        <li>
-            <a href="/logs/{{ log.name }}"><code>{{ log.log_id }}</code></code></a>
-        </li>
-    {% endfor %}
-</ul>
+<table>
+<thead>
+    <tr>
+        <th>id</th>
+        <th>created_at</th>
+        <th>size</th>
+    </tr>
+</thead>
+<tbody>
+{% for log in logs %}
+    <tr>
+        <td><a href="/logs/{{ log.name }}"><code>{{ log.id | string | truncate(8, end='') }}</code></a></td>
+        <td><code>{{ log.created_at | format_time if log.created_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ log.size }}</code></td>
+{% endfor %}
+</tbody>
+</table>
 {% endblock %}

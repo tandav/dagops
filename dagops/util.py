@@ -38,13 +38,13 @@ async def dirstat(
     out = [
         {
             'name': p.name,
-            'created': datetime.datetime.fromtimestamp(p.stat().st_mtime),
+            'created_at': datetime.datetime.fromtimestamp(p.stat().st_mtime, tz=datetime.UTC),
             'size': humanize.naturalsize(p.stat().st_size),
         }
         for p in await aiofiles.os.scandir(path)
     ]
     if sort_by is not None:
-        if sort_by not in {'name', 'created', 'size'}:
+        if sort_by not in {'name', 'created_at', 'size'}:
             raise ValueError(f'Invalid sort_by: {sort_by}')
         out.sort(key=operator.itemgetter(sort_by), reverse=reverse)
 

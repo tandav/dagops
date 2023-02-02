@@ -397,9 +397,9 @@ async def read_worker(
 
 @app.get('/logs/', response_class=HTMLResponse)
 async def logs(request: Request):
-    logs = await util.dirstat(os.environ['LOGS_DIRECTORY'])
+    logs = await util.dirstat(os.environ['LOGS_DIRECTORY'], sort_by='created_at', reverse=True)
     for log in logs:
-        log['log_id'] = Path(log['name']).stem
+        log['id'] = Path(log['name']).stem
     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
 
 
