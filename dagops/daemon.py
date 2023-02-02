@@ -102,8 +102,7 @@ class Daemon:
     async def handle_aio_tasks(self):
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(self.aio_tasks_channel)
-        while True:
-            message = await pubsub.get_message(timeout=None)
+        async for message in pubsub.listen():
             print(message)
             if not self.aiotask_to_task_id:
                 await asyncio.sleep(constant.SLEEP_TIME)
@@ -178,8 +177,7 @@ class Daemon:
         """create dags for new files"""
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(self.files_channel)
-        while True:
-            message = await pubsub.get_message(timeout=None)
+        async for message in pubsub.listen():
             print(message)
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
