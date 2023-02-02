@@ -139,26 +139,6 @@ class DagCreate(BaseModel):
         return values
 
 
-# class Dag(WithDuration):
-#     id: str
-#     created_at: datetime.datetime
-#     updated_at: datetime.datetime
-#     started_at: datetime.datetime | None
-#     stopped_at: datetime.datetime | None
-#     status: TaskStatus
-#     graph: dict[str, list[str]]
-#     tasks: list[str]
-
-#     class Config:
-#         orm_mode = True
-
-
-# class DagUpdate(BaseModel):
-#     started_at: datetime.datetime | None
-#     stopped_at: datetime.datetime | None
-#     status: TaskStatus | None
-
-
 # =============================================================================
 
 

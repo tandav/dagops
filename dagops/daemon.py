@@ -52,7 +52,6 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(
                                 status=TaskStatus.FAILED,
-                                updated_at=datetime.datetime.now(tz=datetime.UTC),
                                 running_worker_id=None,
                             ),
                         )
@@ -79,7 +78,6 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(
                                 status=TaskStatus.RUNNING,
-                                updated_at=now,
                                 started_at=now,
                                 running_worker_id=task.worker.id,
                             ),
@@ -125,7 +123,6 @@ class Daemon:
                     schemas.TaskUpdate(
                         status=status,
                         stopped_at=stopped_at,
-                        updated_at=stopped_at,
                         output_data={'returncode': p.returncode},
                         running_worker_id=None,
                     ),
@@ -237,8 +234,8 @@ class Daemon:
         for task in orphans:
             now = datetime.datetime.now(tz=datetime.UTC)
             task.status = TaskStatus.CANCELED
-            task.stopped_at = now
-            task.updated_at = now
+            if task.started_at is not None:
+                task.stopped_at = now
             task.running_worker_id = None
         self.db.commit()
         print(f'canceling {len(orphans)} orphans tasks... done')
