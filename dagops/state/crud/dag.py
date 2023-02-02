@@ -1,5 +1,6 @@
 import functools
 import graphlib
+import uuid
 
 from sqlalchemy.orm import Session
 
@@ -23,8 +24,8 @@ class DagCRUD:
         db: Session,
         dag: DagCreate,
     ) -> models.Task:
-
         head_task = models.Task(
+            id=uuid.uuid4(),
             task_type='dag',
             worker=read_worker(db, 'dag'),
             status=TaskStatus.PENDING,
