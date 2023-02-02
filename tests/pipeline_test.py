@@ -35,7 +35,7 @@ def test_pipeline(db, tmpdir):
     serial_graph = examples.main.create_dag('dummy_file')
     batch_graph = examples.main.create_batch_dag([])
 
-    MAX_N_SUCCESS = n_files(WATCH_DIRECTORY) * (len(serial_graph) + 1) + n_files(WATCH_DIRECTORY_BATCH) * (len(batch_graph) + 1)
+    MAX_N_SUCCESS = n_files(WATCH_DIRECTORY) * (len(serial_graph) + 1) + len(batch_graph) + 1
 
     with mock.patch.dict(
         os.environ, {
