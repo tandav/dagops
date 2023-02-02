@@ -109,7 +109,6 @@ class Task(TaskCreate, WithDuration):
 class TaskUpdate(BaseModel):
     started_at: datetime.datetime | None
     stopped_at: datetime.datetime | None
-    # updated_at: datetime.datetime
     status: TaskStatus | None
     output_data: dict | None = None
     worker_id: UUID | None = None

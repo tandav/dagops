@@ -32,6 +32,7 @@ class Daemon:
         self.batch = batch
         self.redis = redis.from_url(os.environ['REDIS_URL'])
         self.files_channel = f'{self.watch_directory}:files'
+        self.aio_tasks_channel = f'{self.watch_directory}:aio_tasks'
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
             self.max_n_success = int(MAX_N_SUCCESS)
         else:
@@ -64,7 +65,6 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(
                                 status=TaskStatus.SUCCESS,
-                                updated_at=now,
                                 started_at=min(u.started_at for u in task.upstream),
                                 stopped_at=now,
                                 running_worker_id=None,
@@ -85,6 +85,7 @@ class Daemon:
                             ),
                         )
                         self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
+                        await self.redis.publish(self.aio_tasks_channel, str(task.id))
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
 
@@ -100,8 +101,12 @@ class Daemon:
                     raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    async def handle_aio_tasks(self):  # noqa: C901
+    async def handle_aio_tasks(self):
+        pubsub = self.redis.pubsub()
+        await pubsub.subscribe(self.aio_tasks_channel)
         while True:
+            message = await pubsub.get_message(timeout=None)
+            print(message)
             if not self.aiotask_to_task_id:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
@@ -127,7 +132,7 @@ class Daemon:
                 )
                 del self.aiotask_to_task_id[aiotask]
                 print('EXITING TASK', task_id, status)
-            await asyncio.sleep(constant.SLEEP_TIME)
+            # await asyncio.sleep(constant.SLEEP_TIME)
 
     async def run_tasks(self, task):
         with open(f'{os.environ["LOGS_DIRECTORY"]}/{task.id}.txt', 'w') as logs_fh:
@@ -174,12 +179,11 @@ class Daemon:
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
-        p = self.redis.pubsub()
-        await p.subscribe(self.files_channel)
+        pubsub = self.redis.pubsub()
+        await pubsub.subscribe(self.files_channel)
         while True:
-            message = await p.get_message(timeout=None)
-            print(f'{self.files_channel} message:', message)
-
+            message = await pubsub.get_message(timeout=None)
+            print(message)
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
             if not self.batch:
