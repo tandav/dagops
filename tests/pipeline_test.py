@@ -6,6 +6,8 @@ from unittest import mock
 import pytest
 
 from dagops.state import database
+from dagops.state.crud.task import task_crud
+from dagops.task_status import TaskStatus
 from dagops.worker import prepare_workers
 
 
@@ -29,3 +31,4 @@ def test_pipeline(db, tmpdir):
         },
     ):
         subprocess.check_call([sys.executable, 'examples/main.py'])
+        assert all(task.status == TaskStatus.SUCCESS for task in task_crud.read_many(db))
