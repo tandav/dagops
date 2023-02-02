@@ -49,7 +49,7 @@ jobs:
           # DB_URL: postgresql://postgres:postgres@postgres:5432/postgres
           DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
           REDIS_URL: redis://localhost
-        run: pytest
+        run: pytest -s -vv
 
       - name: pre-commit
         run: pre-commit run --all-files
