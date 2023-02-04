@@ -418,6 +418,8 @@ async def log(
     task_id: str,
     redis: Redis = Depends(get_redis),
 ):
+    if not await redis.exists(f'{constant.LIST_LOGS}:{task_id}'):
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='log not found')
     log_lines = await redis.lrange(f'{constant.LIST_LOGS}:{task_id}', 0, -1)
     return Response(content=''.join(log_lines), media_type='text/plain')
 
