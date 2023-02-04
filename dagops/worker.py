@@ -55,12 +55,9 @@ class Worker:
             return p
 
     async def run_tasks_from_queue(self):
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(constant.CHANNEL_TASK_QUEUE)
-        async for message in pubsub.listen():
-            if message['type'] == 'subscribe':
-                continue
-            task = schemas.TaskMessage.parse_raw(message['data'])
+        while True:
+            _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+            task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
             await self.redis.publish(self.aio_tasks_channel, str(task.id))

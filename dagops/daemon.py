@@ -99,7 +99,7 @@ class Daemon:
                                 running_worker_id=task.worker.id,
                             ),
                         )
-                        await self.redis.publish(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
+                        await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                         # self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
                         # await self.redis.publish(self.aio_tasks_channel, str(task.id))
                     else:
@@ -200,6 +200,9 @@ class Daemon:
                 await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphans(self):
+        await self.redis.delete(self.files_channel)
+        await self.redis.delete(constant.CHANNEL_TASK_QUEUE)
+
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
         if not orphans:
             return
