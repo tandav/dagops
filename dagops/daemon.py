@@ -151,9 +151,8 @@ class Daemon:
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(self.files_channel)
-        async for message in pubsub.listen():
+        while True:
+            message = await self.redis.brpop(self.files_channel)
             print(message)
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
@@ -196,7 +195,7 @@ class Daemon:
                         for file in new_files
                     ],
                 )
-                await self.redis.publish(self.files_channel, str(len(new_files)))
+                await self.redis.lpush(self.files_channel, str(len(new_files)))
             else:
                 await asyncio.sleep(constant.SLEEP_TIME)
 
