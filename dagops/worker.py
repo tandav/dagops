@@ -81,9 +81,7 @@ class Worker:
                     status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
                     output_data={'returncode': p.returncode},
                 )
-                print('status_message.json()', status_message.json())
-                await self.redis.publish(constant.CHANNEL_TASK_STATUS, status_message.json())
-
+                await self.redis.lpush(constant.CHANNEL_TASK_STATUS, status_message.json())
                 del self.aiotask_to_task_id[aiotask]
                 print('EXITING TASK', status_message)
             # await asyncio.sleep(constant.SLEEP_TIME)

@@ -39,13 +39,12 @@ class Daemon:
             self.max_n_success = None
 
     async def handle_tasks(self):  # noqa: C901
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(constant.CHANNEL_TASK_STATUS)
         while True:
-            message = await pubsub.get_message(ignore_subscribe_messages=True)
-            if message is not None:
-                print('handle_tasks', message['data'])
-                task_status = schemas.TaskStatusMessage.parse_raw(message['data'])
+            kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
+            if kv is not None:
+                _, message = kv
+                print('handle_tasks', message)
+                task_status = schemas.TaskStatusMessage.parse_raw(message)
                 task_crud.update_by_id(
                     self.db,
                     uuid.UUID(task_status.id),
@@ -152,7 +151,7 @@ class Daemon:
     async def update_files_dags(self) -> None:
         """create dags for new files"""
         while True:
-            message = await self.redis.brpop(self.files_channel)
+            _, message = await self.redis.brpop(self.files_channel)
             print(message)
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
@@ -200,9 +199,11 @@ class Daemon:
                 await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphans(self):
-        await self.redis.delete(self.files_channel)
-        await self.redis.delete(constant.CHANNEL_TASK_QUEUE)
-
+        pipeline = self.redis.pipeline()
+        pipeline.delete(self.files_channel)
+        pipeline.delete(constant.CHANNEL_TASK_QUEUE)
+        pipeline.delete(constant.CHANNEL_TASK_STATUS)
+        await pipeline.execute()
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
         if not orphans:
             return
