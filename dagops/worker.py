@@ -56,11 +56,20 @@ class Worker:
 
     async def run_tasks_from_queue(self):
         while True:
+            if len(self.aiotask_to_task_id) >= self.maxtasks:
+                await asyncio.sleep(constant.SLEEP_TIME)
+                continue
             _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-            await self.redis.lpush(self.aio_tasks_channel, str(task.id))
+            await self.redis.lpush(self.aio_tasks_channel, task.id)
+            await self.redis.lpush(
+                constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
+                    id=task.id,
+                    status=TaskStatus.RUNNING,
+                ).json(),
+            )
 
     async def handle_aio_tasks(self):
         while True:

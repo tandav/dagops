@@ -45,16 +45,28 @@ class Daemon:
                 _, message = kv
                 print('handle_tasks', message)
                 task_status = schemas.TaskStatusMessage.parse_raw(message)
-                task_crud.update_by_id(
-                    self.db,
-                    uuid.UUID(task_status.id),
-                    schemas.TaskUpdate(
-                        status=task_status.status,
-                        stopped_at=datetime.datetime.now(tz=datetime.UTC),
-                        output_data=task_status.output_data,
-                        running_worker_id=None,
-                    ),
-                )
+                if task_status.status == TaskStatus.RUNNING:
+                    task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
+                    task_crud.update_by_id(
+                        self.db,
+                        task.id,
+                        schemas.TaskUpdate(
+                            status=TaskStatus.RUNNING,
+                            started_at=datetime.datetime.now(tz=datetime.UTC),
+                            running_worker_id=task.worker.id,
+                        ),
+                    )
+                elif task_status.status in {TaskStatus.SUCCESS, TaskStatus.FAILED}:
+                    task_crud.update_by_id(
+                        self.db,
+                        uuid.UUID(task_status.id),
+                        schemas.TaskUpdate(
+                            status=task_status.status,
+                            stopped_at=datetime.datetime.now(tz=datetime.UTC),
+                            output_data=task_status.output_data,
+                            running_worker_id=None,
+                        ),
+                    )
 
             for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
                 all_upstream_success = True
@@ -73,7 +85,6 @@ class Daemon:
                         )
                         break
                 if all_upstream_success:
-                    now = datetime.datetime.now(tz=datetime.UTC)
                     if task.task_type == 'dag':
                         task_crud.update_by_id(
                             self.db,
@@ -81,22 +92,15 @@ class Daemon:
                             schemas.TaskUpdate(
                                 status=TaskStatus.SUCCESS,
                                 started_at=min(u.started_at for u in task.upstream),
-                                stopped_at=now,
+                                stopped_at=datetime.datetime.now(tz=datetime.UTC),
                                 running_worker_id=None,
                             ),
                         )
                     elif task.task_type == 'shell':
-                        if len(task.worker.running_tasks) >= task.worker.maxtasks:
-                            print(f'worker {task.worker.name} is busy, skipping task {task.id} {len(task.worker.running_tasks)=}')
-                            continue
                         task_crud.update_by_id(
                             self.db,
                             task.id,
-                            schemas.TaskUpdate(
-                                status=TaskStatus.RUNNING,
-                                started_at=now,
-                                running_worker_id=task.worker.id,
-                            ),
+                            schemas.TaskUpdate(status=TaskStatus.QUEUED),
                         )
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
