@@ -44,6 +44,17 @@ class ShellTaskInputData(BaseModel):
         return hash((command, env))
 
 
+class TaskMessage(BaseModel):
+    id: str
+    input_data: ShellTaskInputData
+
+
+class TaskStatusMessage(BaseModel):
+    id: str
+    status: TaskStatus
+    output_data: dict | None = None
+
+
 class TaskInfo(ShellTaskInputData, WithWorkerName):
     pass
 

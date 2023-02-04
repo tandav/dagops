@@ -22,12 +22,8 @@ create:
 drop:
 	python -m dagops.state.database drop
 
-.PHONY: workers
-workers:
-	python -m dagops.worker
-
 .PHONY: reinit
-reinit: drop create workers
+reinit: drop create
 
 .PHONY: test
 test:

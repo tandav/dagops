@@ -50,11 +50,15 @@ async def favicon():
     response_model=list[schemas.Task],
 )
 def api_read_tasks(
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
+    status: str | None = None,
+    # skip: int = 0,
+    # limit: int = 100,
 ):
-    db_objects = task_crud.read_many(db, skip, limit)
+    if status is None:
+        db_objects = task_crud.read_many(db)
+    else:
+        db_objects = task_crud.read_by_field(db, 'status', status)
     db_objects = [x.to_dict() for x in db_objects]
     return db_objects
 

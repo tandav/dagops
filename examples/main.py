@@ -4,8 +4,11 @@ import sys
 
 from dagops.daemon import Daemon
 from dagops.dependencies import get_db_cm
+from dagops.dependencies import get_redis_cm
 from dagops.state.schemas import InputDataDag
 from dagops.state.schemas import TaskInfo
+from dagops.worker import prepare_workers
+from dagops.worker import run_workers
 
 
 def create_dag(file: str) -> InputDataDag:
@@ -40,21 +43,29 @@ def create_batch_dag(files: list[str]) -> InputDataDag:
 
 
 async def main():
-    with get_db_cm() as db:
+    with (
+        get_db_cm() as db,
+        get_redis_cm() as redis,
+    ):
         daemon = Daemon(
             watch_directory=os.environ['WATCH_DIRECTORY'],
             db=db,
+            redis=redis,
             create_dag_func=create_dag,
         )
 
         daemon2 = Daemon(
             watch_directory=os.environ['WATCH_DIRECTORY_BATCH'],
             db=db,
+            redis=redis,
             create_dag_func=create_batch_dag,
             batch=True,
         )
 
+        prepare_workers(db)
+
         async with asyncio.TaskGroup() as tg:
+            tg.create_task(run_workers(db, redis))
             tg.create_task(daemon())
             tg.create_task(daemon2())
 
