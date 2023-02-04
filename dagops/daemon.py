@@ -99,8 +99,6 @@ class Daemon:
                             ),
                         )
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
-                        # self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
-                        # await self.redis.publish(self.aio_tasks_channel, str(task.id))
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
 

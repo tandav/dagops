@@ -60,14 +60,11 @@ class Worker:
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-            await self.redis.publish(self.aio_tasks_channel, str(task.id))
+            await self.redis.lpush(self.aio_tasks_channel, str(task.id))
 
     async def handle_aio_tasks(self):
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(self.aio_tasks_channel)
-        async for message in pubsub.listen():
-            if message['type'] == 'subscribe':
-                continue
+        while True:
+            _, message = await self.redis.brpop(self.aio_tasks_channel)
             print('handle_aio_tasks', message)
             if not self.aiotask_to_task_id:  # todo: try remove
                 await asyncio.sleep(constant.SLEEP_TIME)
