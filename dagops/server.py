@@ -1,4 +1,3 @@
-import os
 from http import HTTPStatus
 from pathlib import Path
 
@@ -9,12 +8,16 @@ from fastapi import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
 from fastapi.responses import RedirectResponse
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from redis import Redis
 from sqlalchemy.orm import Session
 from starlette.templating import Jinja2Templates
 
+from dagops import constant
 from dagops import util
 from dagops.dependencies import get_db
+from dagops.dependencies import get_redis
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
@@ -400,19 +403,23 @@ async def read_worker(
 
 
 @app.get('/logs/', response_class=HTMLResponse)
-async def logs(request: Request):
-    logs = await util.dirstat(os.environ['LOGS_DIRECTORY'], sort_by='created_at', reverse=True)
-    for log in logs:
-        log['id'] = Path(log['name']).stem
+async def logs(
+    request: Request,
+    redis: Redis = Depends(get_redis),
+):
+    prefix = constant.LIST_LOGS
+    logs = await redis.keys(f'{prefix}:*')
+    logs = [k.removeprefix(f'{prefix}:') for k in logs]
     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
 
 
 @app.get('/logs/{task_id}.txt', response_class=FileResponse)
-async def log(task_id: str):
-    file = Path(os.environ['LOGS_DIRECTORY']) / f'{task_id}.txt'
-    if not file.exists():
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='log not found')
-    return FileResponse(file)
+async def log(
+    task_id: str,
+    redis: Redis = Depends(get_redis),
+):
+    log_lines = await redis.lrange(f'{constant.LIST_LOGS}:{task_id}', 0, -1)
+    return Response(content=''.join(log_lines), media_type='text/plain')
 
 
 @app.get('/tasks/{task_id}/{json_attr}.json')
@@ -423,13 +430,3 @@ async def task_json_attr(
 ):
     task = task_crud.read_by_id(db, task_id)
     return getattr(task, json_attr)
-
-
-# @app.get('/dags/{dag_id}/{json_attr}.json')
-# async def dag_json_attr(
-#     dag_id: str,
-#     json_attr: str,
-#     db: Session = Depends(get_db),
-# ):
-#     dag = dag_crud.read_by_id(db, dag_id)
-#     return getattr(dag, json_attr)

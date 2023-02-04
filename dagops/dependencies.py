@@ -13,7 +13,7 @@ def get_db():
 
 
 def get_redis():
-    r = redis.from_url(os.environ['REDIS_URL'])
+    r = redis.from_url(os.environ['REDIS_URL'], decode_responses=True)
     yield r
     r.close()
 

@@ -42,17 +42,16 @@ class Worker:
         return f'Worker({self.name}, {self.maxtasks})'
 
     async def run_task(self, task: schemas.TaskMessage) -> asyncio.subprocess.Process:
-        with open(f'{os.environ["LOGS_DIRECTORY"]}/{task.id}.txt', 'w') as logs_fh:
-            p = await asyncio.create_subprocess_exec(
-                # *task.input_data['command'],
-                # env=task.input_data['env'],
-                *task.input_data.command,
-                env=task.input_data.env,
-                stdout=logs_fh,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            await p.communicate()
-            return p
+        p = await asyncio.create_subprocess_exec(
+            *task.input_data.command,
+            env=task.input_data.env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        async for line in p.stdout:
+            await self.redis.rpush(f'{constant.LIST_LOGS}:{task.id}', line)
+        await p.communicate()
+        return p
 
     async def run_tasks_from_queue(self):
         while True:
