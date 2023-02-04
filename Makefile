@@ -25,6 +25,10 @@ drop:
 .PHONY: reinit
 reinit: drop create
 
+.PHONY: re_daemon
+re_daemon: reinit daemon
+
+
 .PHONY: test
 test:
-	pytest
+	pytest -s

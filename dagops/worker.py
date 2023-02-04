@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
@@ -11,20 +10,6 @@ from dagops.state.crud.worker import worker_crud
 from dagops.task_status import TaskStatus
 
 
-def prepare_workers(db: Session, workers: dict[str, int] = constant.workers):
-    dag_worker = worker_crud.read_by_field(db, 'name', 'dag')
-    if len(dag_worker) == 0:
-        worker_crud.create(db, schemas.WorkerCreate(name='dag'))  # dag worker for dags, todo try to remove
-    for worker_name, maxtasks in workers.items():
-        db_worker = worker_crud.read_by_field(db, 'name', worker_name)
-        if len(db_worker) == 0:
-            worker_crud.create(db, schemas.WorkerCreate(name=worker_name, maxtasks=maxtasks))
-            continue
-        db_worker, = db_worker
-        if db_worker.maxtasks != maxtasks:
-            worker_crud.update_by_id(db, db_worker.id, schemas.WorkerUpdate(maxtasks=maxtasks))
-
-
 class Worker:
     def __init__(
         self,
@@ -34,6 +19,8 @@ class Worker:
     ):
         self.name = name
         self.maxtasks = maxtasks
+        # self.queue = asyncio.Queue(maxsize=maxtasks)
+        self.semaphore = asyncio.Semaphore(maxtasks)
         self.aiotask_to_task_id = {}
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
@@ -42,6 +29,16 @@ class Worker:
         return f'Worker({self.name}, {self.maxtasks})'
 
     async def run_task(self, task: schemas.TaskMessage) -> asyncio.subprocess.Process:
+        # try:
+        #     p = await asyncio.create_subprocess_exec(
+        #         *task.input_data.command,
+        #         env=task.input_data.env,
+        #         stdout=asyncio.subprocess.PIPE,
+        #         stderr=asyncio.subprocess.STDOUT,
+        #     )
+        # except OSError:
+        #     await self.redis.rpush(f'{constant.LIST_ERROR}', traceback.format_exc())
+        #     raise
         p = await asyncio.create_subprocess_exec(
             *task.input_data.command,
             env=task.input_data.env,
@@ -53,22 +50,39 @@ class Worker:
         await p.communicate()
         return p
 
+    # async def add_to_local_queue(self):
+    #     seen = set()
+    #     while True:
+    #         _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+    #         task = schemas.TaskMessage.parse_raw(message)
+    #         if task.id in seen:
+    #             raise RuntimeError(f'Task {task} already seen')
+    #         seen.add(task.id)
+    #         await self.queue.put(task)
+    #         print('queue size', self.queue.qsize())
+
     async def run_tasks_from_queue(self):
         while True:
-            if len(self.aiotask_to_task_id) >= self.maxtasks:
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-            _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
-            task = schemas.TaskMessage.parse_raw(message)
-            print('run_tasks_from_queue', task)
-            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-            await self.redis.lpush(self.aio_tasks_channel, task.id)
-            await self.redis.lpush(
-                constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
-                    id=task.id,
-                    status=TaskStatus.RUNNING,
-                ).json(),
-            )
+            # if len(self.aiotask_to_task_id) >= self.maxtasks:
+            #     await asyncio.sleep(constant.SLEEP_TIME)
+            #     continue
+            # print('QUEUE SIZE', self.queue.qsize())
+            # task = await self.queue.get()
+            async with self.semaphore:
+                print('run_tasks_from_queue', self.semaphore._value, len(self.aiotask_to_task_id))
+                _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+                task = schemas.TaskMessage.parse_raw(message)
+                print('run_tasks_from_queue', task)
+                self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
+                pipeline = self.redis.pipeline()
+                pipeline.lpush(self.aio_tasks_channel, task.id)
+                pipeline.lpush(
+                    constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
+                        id=task.id,
+                        status=TaskStatus.RUNNING,
+                    ).json(),
+                )
+                await pipeline.execute()
 
     async def handle_aio_tasks(self):
         while True:
@@ -92,18 +106,37 @@ class Worker:
             # await asyncio.sleep(constant.SLEEP_TIME)
 
     async def __call__(self):
+        await self.redis.delete(self.aio_tasks_channel)
         async with asyncio.TaskGroup() as tg:
+            # tg.create_task(self.add_to_local_queue())
             tg.create_task(self.run_tasks_from_queue())
             tg.create_task(self.handle_aio_tasks())
 
 
-async def run_workers(db: Session, redis: Redis):
-    workers = worker_crud.read_many(db)
-    workers = [
-        Worker(worker.name, worker.maxtasks, redis)
-        for worker in workers
-        if worker.name != 'dag'
-    ]
+async def prepare_workers(
+    db: Session,
+    redis: Redis,
+    workers: dict[str, int] = constant.workers,
+) -> list[Worker]:
+    dag_worker = worker_crud.read_by_field(db, 'name', 'dag')
+    if len(dag_worker) == 0:
+        worker_crud.create(db, schemas.WorkerCreate(name='dag'))  # dag worker for dags, todo try to remove
+
+    workers_objs = []
+    for worker_name, maxtasks in workers.items():
+        workers_objs.append(Worker(worker_name, maxtasks, redis))
+        db_worker = worker_crud.read_by_field(db, 'name', worker_name)
+        if len(db_worker) == 0:
+            worker_crud.create(db, schemas.WorkerCreate(name=worker_name, maxtasks=maxtasks))
+            continue
+        db_worker, = db_worker
+        if db_worker.maxtasks != maxtasks:
+            worker_crud.update_by_id(db, db_worker.id, schemas.WorkerUpdate(maxtasks=maxtasks))
+        await redis.delete(f'{constant.CHANNEL_AIO_TASKS}:{worker_name}')
+    return workers_objs
+
+
+async def run_workers(workers: list[Worker]):
     async with asyncio.TaskGroup() as tg:
         for worker in workers:
             tg.create_task(worker())

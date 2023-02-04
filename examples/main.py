@@ -62,10 +62,9 @@ async def main():
             batch=True,
         )
 
-        prepare_workers(db)
-
+        workers = await prepare_workers(db, redis)
         async with asyncio.TaskGroup() as tg:
-            tg.create_task(run_workers(db, redis))
+            tg.create_task(run_workers(workers))
             tg.create_task(daemon())
             tg.create_task(daemon2())
 

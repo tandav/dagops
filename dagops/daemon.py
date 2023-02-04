@@ -39,6 +39,7 @@ class Daemon:
             self.max_n_success = None
 
     async def handle_tasks(self):  # noqa: C901
+        seen = set()
         while True:
             kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
             if kv is not None:
@@ -102,6 +103,9 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(status=TaskStatus.QUEUED),
                         )
+                        if task.id in seen:
+                            raise RuntimeError(f'Task {task} is already running')
+                        seen.add(task.id)
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
@@ -205,6 +209,7 @@ class Daemon:
         pipeline.delete(self.files_channel)
         pipeline.delete(constant.CHANNEL_TASK_QUEUE)
         pipeline.delete(constant.CHANNEL_TASK_STATUS)
+        pipeline.delete(f'{constant.CHANNEL_AIO_TASKS}:*')
         await pipeline.execute()
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
         if not orphans:
