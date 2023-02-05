@@ -26,7 +26,7 @@
     </tr>
     <tr>
         <td>dag_id</td>
-        <td><code>{{ file.dag_id }}</code></td>
+        <td><a href="/tasks/{{ file.dag_id }}"><code>{{ file.dag_id if file.dag_id is not none else 'NULL' }}</code></a></td>
     </tr>
 </tbody>
 </table>

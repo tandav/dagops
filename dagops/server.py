@@ -1,4 +1,3 @@
-import os
 from http import HTTPStatus
 from pathlib import Path
 
@@ -9,12 +8,16 @@ from fastapi import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import HTMLResponse
 from fastapi.responses import RedirectResponse
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from redis import Redis
 from sqlalchemy.orm import Session
 from starlette.templating import Jinja2Templates
 
+from dagops import constant
 from dagops import util
 from dagops.dependencies import get_db
+from dagops.dependencies import get_redis
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
@@ -50,11 +53,15 @@ async def favicon():
     response_model=list[schemas.Task],
 )
 def api_read_tasks(
-    skip: int = 0,
-    limit: int = 100,
     db: Session = Depends(get_db),
+    status: str | None = None,
+    # skip: int = 0,
+    # limit: int = 100,
 ):
-    db_objects = task_crud.read_many(db, skip, limit)
+    if status is None:
+        db_objects = task_crud.read_many(db)
+    else:
+        db_objects = task_crud.read_by_field(db, 'status', status)
     db_objects = [x.to_dict() for x in db_objects]
     return db_objects
 
@@ -396,19 +403,25 @@ async def read_worker(
 
 
 @app.get('/logs/', response_class=HTMLResponse)
-async def logs(request: Request):
-    logs = await util.dirstat(os.environ['LOGS_DIRECTORY'], sort_by='created_at', reverse=True)
-    for log in logs:
-        log['id'] = Path(log['name']).stem
+async def logs(
+    request: Request,
+    redis: Redis = Depends(get_redis),
+):
+    prefix = constant.LIST_LOGS
+    logs = await redis.keys(f'{prefix}:*')
+    logs = [k.removeprefix(f'{prefix}:') for k in logs]
     return templates.TemplateResponse('logs.j2', {'request': request, 'logs': logs})
 
 
 @app.get('/logs/{task_id}.txt', response_class=FileResponse)
-async def log(task_id: str):
-    file = Path(os.environ['LOGS_DIRECTORY']) / f'{task_id}.txt'
-    if not file.exists():
+async def log(
+    task_id: str,
+    redis: Redis = Depends(get_redis),
+):
+    if not await redis.exists(f'{constant.LIST_LOGS}:{task_id}'):
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail='log not found')
-    return FileResponse(file)
+    log_lines = await redis.lrange(f'{constant.LIST_LOGS}:{task_id}', 0, -1)
+    return Response(content=''.join(log_lines), media_type='text/plain')
 
 
 @app.get('/tasks/{task_id}/{json_attr}.json')
@@ -419,13 +432,3 @@ async def task_json_attr(
 ):
     task = task_crud.read_by_id(db, task_id)
     return getattr(task, json_attr)
-
-
-# @app.get('/dags/{dag_id}/{json_attr}.json')
-# async def dag_json_attr(
-#     dag_id: str,
-#     json_attr: str,
-#     db: Session = Depends(get_db),
-# ):
-#     dag = dag_crud.read_by_id(db, dag_id)
-#     return getattr(dag, json_attr)

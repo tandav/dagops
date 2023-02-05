@@ -6,16 +6,12 @@
 <thead>
     <tr>
         <th>id</th>
-        <th>created_at</th>
-        <th>size</th>
     </tr>
 </thead>
 <tbody>
 {% for log in logs %}
     <tr>
-        <td><a href="/logs/{{ log.name }}"><code>{{ log.id | string | truncate(8, end='') }}</code></a></td>
-        <td><code>{{ log.created_at | format_time if log.created_at is not none else 'NULL'}}</code></td>
-        <td><code>{{ log.size }}</code></td>
+        <td><a href="/logs/{{ log }}.txt"><code>{{ log }}</code></a></td>
 {% endfor %}
 </tbody>
 </table>

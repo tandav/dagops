@@ -95,7 +95,7 @@ class Task(Base):
 class Worker(Base):
     __tablename__ = 'worker'
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, unique=True)
     maxtasks = Column(Integer, nullable=True)
     tasks = relationship('Task', back_populates='worker', foreign_keys=[Task.worker_id])
     running_tasks = relationship('Task', back_populates='running_worker', foreign_keys=[Task.running_worker_id])

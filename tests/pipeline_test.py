@@ -8,7 +8,6 @@ import pytest
 
 import examples.main
 from dagops.state import database
-from dagops.worker import prepare_workers
 
 
 @pytest.fixture
@@ -16,7 +15,6 @@ def db():
     database.drop_all()
     database.create_all()
     db = database.SessionLocal()
-    prepare_workers(db)
     yield db
     db.close()
     database.drop_all()
@@ -29,7 +27,7 @@ def n_files(
     return sum(1 for p in Path(directory).iterdir() if p.name not in exclude)
 
 
-def test_pipeline(db, tmpdir):
+def test_pipeline(db):
     WATCH_DIRECTORY = 'tests/watch_dirs/serial'
     WATCH_DIRECTORY_BATCH = 'tests/watch_dirs/batch'
     serial_graph = examples.main.create_dag('dummy_file')
@@ -40,7 +38,6 @@ def test_pipeline(db, tmpdir):
     with mock.patch.dict(
         os.environ, {
             'N_ITERATIONS': '1',
-            'LOGS_DIRECTORY': str(tmpdir),
             'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
             'WATCH_DIRECTORY': WATCH_DIRECTORY,
             'WATCH_DIRECTORY_BATCH': WATCH_DIRECTORY_BATCH,

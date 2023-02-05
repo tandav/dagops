@@ -1,11 +1,12 @@
 import asyncio
 import datetime
 import os
+import uuid
 from pathlib import Path
 from typing import Callable
 
 import aiofiles.os
-import redis.asyncio as redis
+from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from dagops import constant
@@ -22,24 +23,52 @@ class Daemon:
         self,
         watch_directory: str,
         db: Session,
+        redis: Redis,
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         batch: bool = False,
     ):
         self.watch_directory = Path(watch_directory)
         self.db = db
         self.create_dag_func = create_dag_func
-        self.aiotask_to_task_id = {}
         self.batch = batch
-        self.redis = redis.from_url(os.environ['REDIS_URL'])
-        self.files_channel = f'files:{self.watch_directory}'
-        self.aio_tasks_channel = f'aio_tasks:{self.watch_directory}'
+        self.redis = redis
+        self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
             self.max_n_success = int(MAX_N_SUCCESS)
         else:
             self.max_n_success = None
 
     async def handle_tasks(self):  # noqa: C901
+        seen = set()
         while True:
+            kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
+            if kv is not None:
+                _, message = kv
+                print('handle_tasks', message)
+                task_status = schemas.TaskStatusMessage.parse_raw(message)
+                if task_status.status == TaskStatus.RUNNING:
+                    task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
+                    task_crud.update_by_id(
+                        self.db,
+                        task.id,
+                        schemas.TaskUpdate(
+                            status=TaskStatus.RUNNING,
+                            started_at=datetime.datetime.now(tz=datetime.UTC),
+                            running_worker_id=task.worker.id,
+                        ),
+                    )
+                elif task_status.status in {TaskStatus.SUCCESS, TaskStatus.FAILED}:
+                    task_crud.update_by_id(
+                        self.db,
+                        uuid.UUID(task_status.id),
+                        schemas.TaskUpdate(
+                            status=task_status.status,
+                            stopped_at=datetime.datetime.now(tz=datetime.UTC),
+                            output_data=task_status.output_data,
+                            running_worker_id=None,
+                        ),
+                    )
+
             for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
                 all_upstream_success = True
                 for u in task.upstream:
@@ -57,7 +86,6 @@ class Daemon:
                         )
                         break
                 if all_upstream_success:
-                    now = datetime.datetime.now(tz=datetime.UTC)
                     if task.task_type == 'dag':
                         task_crud.update_by_id(
                             self.db,
@@ -65,25 +93,20 @@ class Daemon:
                             schemas.TaskUpdate(
                                 status=TaskStatus.SUCCESS,
                                 started_at=min(u.started_at for u in task.upstream),
-                                stopped_at=now,
+                                stopped_at=datetime.datetime.now(tz=datetime.UTC),
                                 running_worker_id=None,
                             ),
                         )
                     elif task.task_type == 'shell':
-                        if len(task.worker.running_tasks) >= task.worker.maxtasks:
-                            print(f'worker {task.worker.name} is busy, skipping task {task.id} {len(task.worker.running_tasks)=}')
-                            continue
                         task_crud.update_by_id(
                             self.db,
                             task.id,
-                            schemas.TaskUpdate(
-                                status=TaskStatus.RUNNING,
-                                started_at=now,
-                                running_worker_id=task.worker.id,
-                            ),
+                            schemas.TaskUpdate(status=TaskStatus.QUEUED),
                         )
-                        self.aiotask_to_task_id[asyncio.create_task(self.run_tasks(task))] = task.id
-                        await self.redis.publish(self.aio_tasks_channel, str(task.id))
+                        if task.id in seen:
+                            raise RuntimeError(f'Task {task} is already running')
+                        seen.add(task.id)
+                        await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
 
@@ -98,48 +121,6 @@ class Daemon:
                 elif n_success > self.max_n_success:
                     raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
             await asyncio.sleep(constant.SLEEP_TIME)
-
-    async def handle_aio_tasks(self):
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(self.aio_tasks_channel)
-        async for message in pubsub.listen():
-            print(message)
-            if not self.aiotask_to_task_id:
-                await asyncio.sleep(constant.SLEEP_TIME)
-                continue
-            done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
-            for aiotask in done:
-                p = aiotask.result()
-                assert p.returncode is not None
-                status = TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED
-
-                task_id = self.aiotask_to_task_id[aiotask]
-                stopped_at = datetime.datetime.now(tz=datetime.UTC)
-
-                task_crud.update_by_id(
-                    self.db,
-                    task_id,
-                    schemas.TaskUpdate(
-                        status=status,
-                        stopped_at=stopped_at,
-                        output_data={'returncode': p.returncode},
-                        running_worker_id=None,
-                    ),
-                )
-                del self.aiotask_to_task_id[aiotask]
-                print('EXITING TASK', task_id, status)
-            # await asyncio.sleep(constant.SLEEP_TIME)
-
-    async def run_tasks(self, task):
-        with open(f'{os.environ["LOGS_DIRECTORY"]}/{task.id}.txt', 'w') as logs_fh:
-            p = await asyncio.create_subprocess_exec(
-                *task.input_data['command'],
-                env=task.input_data['env'],
-                stdout=logs_fh,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-            await p.communicate()
-            return p
 
     @staticmethod
     def validate_dag(dag: dict[schemas.ShellTaskInputData, list[schemas.ShellTaskInputData]]):
@@ -175,9 +156,8 @@ class Daemon:
 
     async def update_files_dags(self) -> None:
         """create dags for new files"""
-        pubsub = self.redis.pubsub()
-        await pubsub.subscribe(self.files_channel)
-        async for message in pubsub.listen():
+        while True:
+            _, message = await self.redis.brpop(self.files_channel)
             print(message)
             files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
             files = [file for file in files if file.dag_id is None]
@@ -220,11 +200,17 @@ class Daemon:
                         for file in new_files
                     ],
                 )
-                await self.redis.publish(self.files_channel, str(len(new_files)))
+                await self.redis.lpush(self.files_channel, str(len(new_files)))
             else:
                 await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphans(self):
+        pipeline = self.redis.pipeline()
+        pipeline.delete(self.files_channel)
+        pipeline.delete(constant.CHANNEL_TASK_QUEUE)
+        pipeline.delete(constant.CHANNEL_TASK_STATUS)
+        pipeline.delete(f'{constant.CHANNEL_AIO_TASKS}:*')
+        await pipeline.execute()
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
         if not orphans:
             return
@@ -244,4 +230,3 @@ class Daemon:
             tg.create_task(self.do_watch_directory())
             tg.create_task(self.update_files_dags())
             tg.create_task(self.handle_tasks())
-            tg.create_task(self.handle_aio_tasks())
