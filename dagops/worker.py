@@ -20,7 +20,7 @@ class Worker:
         self.name = name
         self.maxtasks = maxtasks
         # self.queue = asyncio.Queue(maxsize=maxtasks)
-        self.semaphore = asyncio.Semaphore(maxtasks)
+        # self.semaphore = asyncio.Semaphore(maxtasks)
         self.aiotask_to_task_id = {}
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
@@ -51,38 +51,46 @@ class Worker:
         return p
 
     # async def add_to_local_queue(self):
-    #     seen = set()
     #     while True:
     #         _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
     #         task = schemas.TaskMessage.parse_raw(message)
-    #         if task.id in seen:
-    #             raise RuntimeError(f'Task {task} already seen')
-    #         seen.add(task.id)
     #         await self.queue.put(task)
     #         print('queue size', self.queue.qsize())
 
     async def run_tasks_from_queue(self):
         while True:
-            # if len(self.aiotask_to_task_id) >= self.maxtasks:
-            #     await asyncio.sleep(constant.SLEEP_TIME)
-            #     continue
+            if len(self.aiotask_to_task_id) >= self.maxtasks:
+                await asyncio.sleep(constant.SLEEP_TIME)
+                continue
             # print('QUEUE SIZE', self.queue.qsize())
             # task = await self.queue.get()
-            async with self.semaphore:
-                print('run_tasks_from_queue', self.semaphore._value, len(self.aiotask_to_task_id))
-                _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
-                task = schemas.TaskMessage.parse_raw(message)
-                print('run_tasks_from_queue', task)
-                self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-                pipeline = self.redis.pipeline()
-                pipeline.lpush(self.aio_tasks_channel, task.id)
-                pipeline.lpush(
-                    constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
-                        id=task.id,
-                        status=TaskStatus.RUNNING,
-                    ).json(),
-                )
-                await pipeline.execute()
+            # # print('run_tasks_from_queue', self.semaphore._value, len(self.aiotask_to_task_id))
+            # print('run_tasks_from_queue', task)
+            # self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
+            # pipeline = self.redis.pipeline()
+            # pipeline.lpush(self.aio_tasks_channel, task.id)
+            # pipeline.lpush(
+            #     constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
+            #         id=task.id,
+            #         status=TaskStatus.RUNNING,
+            #     ).json(),
+            # )
+            # await pipeline.execute()
+            # async with self.semaphore:
+            print('run_tasks_from_queue', len(self.aiotask_to_task_id))
+            _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+            task = schemas.TaskMessage.parse_raw(message)
+            print('run_tasks_from_queue', task)
+            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
+            pipeline = self.redis.pipeline()
+            pipeline.lpush(self.aio_tasks_channel, task.id)
+            pipeline.lpush(
+                constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
+                    id=task.id,
+                    status=TaskStatus.RUNNING,
+                ).json(),
+            )
+            await pipeline.execute()
 
     async def handle_aio_tasks(self):
         while True:
