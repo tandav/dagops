@@ -25,9 +25,8 @@ drop:
 .PHONY: reinit
 reinit: drop create
 
-.PHONY: re_daemon
-re_daemon: reinit daemon
-
+.PHONY: redaemon
+redaemon: reinit daemon
 
 .PHONY: test
 test:
