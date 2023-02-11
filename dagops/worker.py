@@ -80,9 +80,10 @@ class Worker:
 
     async def __call__(self):
         await self.redis.delete(self.aio_tasks_channel)
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(self.run_tasks_from_queue())
-            tg.create_task(self.handle_aio_tasks())
+        await asyncio.gather(
+            self.run_tasks_from_queue(),
+            self.handle_aio_tasks(),
+        )
 
 
 async def prepare_workers(
@@ -109,9 +110,7 @@ async def prepare_workers(
 
 
 async def run_workers(workers: list[Worker]):
-    async with asyncio.TaskGroup() as tg:
-        for worker in workers:
-            tg.create_task(worker())
+    await asyncio.gather(*[worker() for worker in workers])
 
 if __name__ == '__main__':
     with get_db_cm() as db:

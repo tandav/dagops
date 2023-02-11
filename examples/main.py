@@ -63,10 +63,11 @@ async def main():
         )
 
         workers = await prepare_workers(db, redis)
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(run_workers(workers))
-            tg.create_task(daemon())
-            tg.create_task(daemon2())
+        await asyncio.gather(
+            run_workers(workers),
+            daemon(),
+            daemon2(),
+        )
 
 
 if __name__ == '__main__':

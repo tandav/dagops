@@ -226,7 +226,8 @@ class Daemon:
 
     async def __call__(self):
         await self.cancel_orphans()
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(self.do_watch_directory())
-            tg.create_task(self.update_files_dags())
-            tg.create_task(self.handle_tasks())
+        await asyncio.gather(
+            self.do_watch_directory(),
+            self.update_files_dags(),
+            self.handle_tasks(),
+        )
