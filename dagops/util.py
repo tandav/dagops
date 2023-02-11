@@ -38,7 +38,7 @@ async def dirstat(
     out = [
         {
             'name': p.name,
-            'created_at': datetime.datetime.fromtimestamp(p.stat().st_mtime, tz=datetime.UTC),
+            'created_at': datetime.datetime.fromtimestamp(p.stat().st_mtime, tz=datetime.timezone.utc),
             'size': humanize.naturalsize(p.stat().st_size),
         }
         for p in await aiofiles.os.scandir(path)
@@ -56,7 +56,7 @@ def format_time(
     absolute: bool = False,
     pad: bool = False,
 ) -> str:
-    if absolute or (datetime.datetime.now(tz=datetime.UTC) - t).days > 30:
+    if absolute or (datetime.datetime.now(tz=datetime.timezone.utc) - t).days > 30:
         return t.strftime('%Y %b %d %H:%M')
     t = datetime.datetime.fromtimestamp(t.timestamp())
     out = humanize.naturaltime(t)
