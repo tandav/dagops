@@ -53,7 +53,7 @@ class Daemon:
                         task.id,
                         schemas.TaskUpdate(
                             status=TaskStatus.RUNNING,
-                            started_at=datetime.datetime.now(tz=datetime.UTC),
+                            started_at=datetime.datetime.now(tz=datetime.timezone.utc),
                             running_worker_id=task.worker.id,
                         ),
                     )
@@ -63,7 +63,7 @@ class Daemon:
                         uuid.UUID(task_status.id),
                         schemas.TaskUpdate(
                             status=task_status.status,
-                            stopped_at=datetime.datetime.now(tz=datetime.UTC),
+                            stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
                             output_data=task_status.output_data,
                             running_worker_id=None,
                         ),
@@ -93,7 +93,7 @@ class Daemon:
                             schemas.TaskUpdate(
                                 status=TaskStatus.SUCCESS,
                                 started_at=min(u.started_at for u in task.upstream),
-                                stopped_at=datetime.datetime.now(tz=datetime.UTC),
+                                stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
                                 running_worker_id=None,
                             ),
                         )
@@ -216,7 +216,7 @@ class Daemon:
             return
         print(f'canceling {len(orphans)} orphans tasks...')
         for task in orphans:
-            now = datetime.datetime.now(tz=datetime.UTC)
+            now = datetime.datetime.now(tz=datetime.timezone.utc)
             task.status = TaskStatus.CANCELED
             if task.started_at is not None:
                 task.stopped_at = now
