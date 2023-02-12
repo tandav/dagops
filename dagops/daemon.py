@@ -4,6 +4,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import Callable
+from typing import Literal
 
 import aiofiles.os
 from redis.asyncio import Redis
@@ -26,7 +27,11 @@ class Daemon:
         redis: Redis,
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         batch: bool = False,
+        watch_type: Literal['filesystem', 'redis'] = 'filesystem',
     ):
+        if watch_type not in {'filesystem', 'redis'}:
+            raise ValueError(f'unsupported watch_type={watch_type} It must be filesystem or redis')
+        self.watch_type = watch_type
         self.id = uuid.uuid4()
         self.watch_directory = Path(watch_directory)
         self.db = db
@@ -183,7 +188,11 @@ class Daemon:
         exclude: frozenset[str] = frozenset({'.DS_Store'}),
     ) -> None:
         while True:
-            files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
+            if self.watch_type == 'filesystem':
+                files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
+            elif self.watch_type == 'redis':
+                files = {k.removeprefix(str(self.watch_directory)) for k in await self.redis.keys(str(self.watch_directory) + '*')} - exclude
+
             stale_files_ids = set()
             up_to_date_files_paths = set()
             for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
