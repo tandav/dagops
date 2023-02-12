@@ -28,6 +28,7 @@ class DagCRUD:
             id=uuid.uuid4(),
             task_type='dag',
             worker=read_worker(db, 'dag'),
+            daemon_id=dag.daemon_id,
             status=TaskStatus.PENDING,
         )
         db.add(head_task)
@@ -41,6 +42,7 @@ class DagCRUD:
                 worker=read_worker(db, input_data.pop('worker_name')),
                 upstream=[task_input_data_id_to_db_task[td] for td in dag.graph[task_input_data_id]],
                 dag_id=head_task.id,
+                daemon_id=dag.daemon_id,
                 status=TaskStatus.PENDING,
             )
             db.add(db_task)

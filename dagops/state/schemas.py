@@ -123,6 +123,7 @@ class DagCreate(BaseModel):
     task_type: str | None = None
     tasks_input_data: list[dict]
     graph: dict[int, list[int]]
+    daemon_id: UUID
 
     @root_validator
     def validate_graph(cls, values):

@@ -27,6 +27,7 @@ class Daemon:
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         batch: bool = False,
     ):
+        self.id = uuid.uuid4()
         self.watch_directory = Path(watch_directory)
         self.db = db
         self.create_dag_func = create_dag_func
@@ -69,7 +70,15 @@ class Daemon:
                         ),
                     )
 
-            for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
+            pending = (
+                self
+                .db
+                .query(models.Task)
+                .filter(models.Task.daemon_id == self.id)
+                .filter(models.Task.status == TaskStatus.PENDING)
+                .all()
+            )
+            for task in pending:
                 all_upstream_success = True
                 for u in task.upstream:
                     if u.status == TaskStatus.SUCCESS:
@@ -131,8 +140,7 @@ class Daemon:
                 if dep not in dag:
                     raise ValueError(f'dependency {dep} of task {task} not in dag')
 
-    @staticmethod
-    def prepare_dag(graph: schemas.InputDataDag) -> schemas.DagCreate:
+    def prepare_dag(self, graph: schemas.InputDataDag) -> schemas.DagCreate:
         input_data = [None] * len(graph)
         task_to_id = {}
         for i, task in enumerate(graph):
@@ -145,6 +153,7 @@ class Daemon:
             task_type='shell',
             tasks_input_data=input_data,
             graph=id_graph,
+            daemon_id=self.id,
         )
         return dag
 

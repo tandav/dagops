@@ -30,8 +30,7 @@ class File(Base):
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
 
     # relationships
-    # dag = relationship('Task', back_populates='file', foreign_keys=[dag_id])
-    dag = relationship('Task', foreign_keys=[dag_id])
+    dag = relationship('Task')
 
 
 task_to_upstream_tasks = Table(
@@ -50,6 +49,7 @@ class Task(Base):
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
     worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     running_worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
+    daemon_id = Column(UUID, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
@@ -58,16 +58,9 @@ class Task(Base):
     input_data = Column(JSONB, nullable=True)
     output_data = Column(JSONB, nullable=True)
 
-    # file_id = Column(UUID, ForeignKey('file.id'), nullable=True)
-    # directory = Column(String, ForeignKey('file.directory'), nullable=True)
-
     # relationships
     worker = relationship('Worker', back_populates='tasks', foreign_keys=[worker_id])
     running_worker = relationship('Worker', back_populates='running_tasks', foreign_keys=[running_worker_id])
-
-    file = relationship('File', back_populates='dag')
-    # file = relationship('File', back_populates='dag', foreign_keys=[file_id])
-    # directory = relationship('File', back_populates='dag')
     upstream = relationship(
         'Task',
         secondary=task_to_upstream_tasks,
