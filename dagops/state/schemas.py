@@ -61,7 +61,7 @@ class TaskInfo(ShellTaskInputData, WithWorkerName):
 
 InputDataDag = dict[TaskInfo, list[TaskInfo]]
 
-TASK_TYPE_TO_INPUT_DATA_SCHEMA = {
+type_TO_INPUT_DATA_SCHEMA = {
     'shell': ShellTaskInputData,
     'dag': None,
 }
@@ -71,22 +71,22 @@ class TaskCreate(WithWorkerName):
     id: UUID = Field(default_factory=uuid.uuid4)
     dag_id: UUID | None = None
     upstream: list[UUID] = []
-    task_type: str | None = None
+    type: str | None = None
     input_data: dict | None = None
     worker_id: UUID | None = None
 
     @root_validator(pre=True)
-    def validate_task_type_and_input_data(cls, values):
-        task_type = values['task_type']
-        if task_type not in TASK_TYPE_TO_INPUT_DATA_SCHEMA:
-            raise ValueError(f'unsupported task type {task_type}')
-        input_data_schema = TASK_TYPE_TO_INPUT_DATA_SCHEMA[task_type]
+    def validate_type_and_input_data(cls, values):
+        type = values['type']
+        if type not in type_TO_INPUT_DATA_SCHEMA:
+            raise ValueError(f'unsupported task type {type}')
+        input_data_schema = type_TO_INPUT_DATA_SCHEMA[type]
 
         if input_data_schema is None:
             return values
 
         if 'input_data' not in values:
-            raise ValueError('input_data must be set for task_type {task_type}')
+            raise ValueError('input_data must be set for type {type}')
 
         input_data_schema.validate(values['input_data'])
         return values
@@ -120,7 +120,7 @@ class TaskUpdate(BaseModel):
 
 
 class DagCreate(BaseModel):
-    task_type: str | None = None
+    type: str | None = None
     tasks_input_data: list[dict]
     graph: dict[int, list[int]]
     daemon_id: UUID

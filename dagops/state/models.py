@@ -45,7 +45,7 @@ class Task(Base):
 
     # columns
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
-    task_type = Column(String, nullable=True)
+    type = Column(String, nullable=True)
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
     worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     running_worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
@@ -83,7 +83,7 @@ class Task(Base):
     def to_dict(self):
         return {
             'id': self.id,
-            'task_type': self.task_type,
+            'type': self.type,
             'dag_id': self.dag_id,
             'worker_id': self.worker_id,
             'worker_name': self.worker.name if self.worker else None,

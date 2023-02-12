@@ -95,7 +95,7 @@ class Daemon:
                         )
                         break
                 if all_upstream_success:
-                    if task.task_type == 'dag':
+                    if task.type == 'dag':
                         task_crud.update_by_id(
                             self.db,
                             task.id,
@@ -106,7 +106,7 @@ class Daemon:
                                 running_worker_id=None,
                             ),
                         )
-                    elif task.task_type == 'shell':
+                    elif task.type == 'shell':
                         print(self.watch_directory, 'seen', seen)
                         if task.id in seen:
                             raise RuntimeError(f'Task {task} is already running')
@@ -119,7 +119,7 @@ class Daemon:
                         print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to CHANNEL_TASK_QUEUE')
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
-                        raise NotImplementedError(f'unsupported task_type {task.task_type}')
+                        raise NotImplementedError(f'unsupported type {task.type}')
 
             if self.max_n_success is not None:
                 n_success = task_crud.n_success(self.db)
@@ -150,7 +150,7 @@ class Daemon:
         for task, deps in graph.items():
             id_graph[task_to_id[task]] = [task_to_id[dep] for dep in deps]
         dag = schemas.DagCreate(
-            task_type='shell',
+            type='shell',
             tasks_input_data=input_data,
             graph=id_graph,
             daemon_id=self.id,
