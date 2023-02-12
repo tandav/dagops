@@ -44,7 +44,7 @@ class Daemon:
             kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
-                print('handle_tasks', message)
+                print(self.watch_directory, 'handle_tasks', message)
                 task_status = schemas.TaskStatusMessage.parse_raw(message)
                 if task_status.status == TaskStatus.RUNNING:
                     task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
@@ -98,14 +98,16 @@ class Daemon:
                             ),
                         )
                     elif task.task_type == 'shell':
+                        print(self.watch_directory, 'seen', seen)
+                        if task.id in seen:
+                            raise RuntimeError(f'Task {task} is already running')
+                        seen.add(task.id)
                         task_crud.update_by_id(
                             self.db,
                             task.id,
                             schemas.TaskUpdate(status=TaskStatus.QUEUED),
                         )
-                        if task.id in seen:
-                            raise RuntimeError(f'Task {task} is already running')
-                        seen.add(task.id)
+                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to CHANNEL_TASK_QUEUE')
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
                         raise NotImplementedError(f'unsupported task_type {task.task_type}')
