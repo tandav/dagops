@@ -26,8 +26,9 @@ class DagCRUD:
     ) -> models.Task:
         head_task = models.Task(
             id=uuid.uuid4(),
-            task_type='dag',
+            type='dag',
             worker=read_worker(db, 'dag'),
+            daemon_id=dag.daemon_id,
             status=TaskStatus.PENDING,
         )
         db.add(head_task)
@@ -36,11 +37,12 @@ class DagCRUD:
         for task_input_data_id in graphlib.TopologicalSorter(dag.graph).static_order():
             input_data = dag.tasks_input_data[task_input_data_id]
             db_task = models.Task(
-                task_type=dag.task_type,
+                type=dag.type,
                 input_data=input_data,
                 worker=read_worker(db, input_data.pop('worker_name')),
                 upstream=[task_input_data_id_to_db_task[td] for td in dag.graph[task_input_data_id]],
                 dag_id=head_task.id,
+                daemon_id=dag.daemon_id,
                 status=TaskStatus.PENDING,
             )
             db.add(db_task)

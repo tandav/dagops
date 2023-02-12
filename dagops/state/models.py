@@ -23,10 +23,13 @@ class Base(DeclarativeBase):
 class File(Base):
     __tablename__ = 'file'
 
+    # columns
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     directory = Column(String, nullable=False)
     file = Column(String, nullable=False)
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
+
+    # relationships
     dag = relationship('Task')
 
 
@@ -40,13 +43,13 @@ task_to_upstream_tasks = Table(
 class Task(Base):
     __tablename__ = 'task'
 
+    # columns
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
-    task_type = Column(String, nullable=True)
+    type = Column(String, nullable=True)
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)
     worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
-    worker = relationship('Worker', back_populates='tasks', foreign_keys=[worker_id])
     running_worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
-    running_worker = relationship('Worker', back_populates='running_tasks', foreign_keys=[running_worker_id])
+    daemon_id = Column(UUID, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     started_at = Column(DateTime(timezone=True), nullable=True)
@@ -54,6 +57,10 @@ class Task(Base):
     status = Column(Enum(TaskStatus), nullable=False)
     input_data = Column(JSONB, nullable=True)
     output_data = Column(JSONB, nullable=True)
+
+    # relationships
+    worker = relationship('Worker', back_populates='tasks', foreign_keys=[worker_id])
+    running_worker = relationship('Worker', back_populates='running_tasks', foreign_keys=[running_worker_id])
     upstream = relationship(
         'Task',
         secondary=task_to_upstream_tasks,
@@ -76,7 +83,7 @@ class Task(Base):
     def to_dict(self):
         return {
             'id': self.id,
-            'task_type': self.task_type,
+            'type': self.type,
             'dag_id': self.dag_id,
             'worker_id': self.worker_id,
             'worker_name': self.worker.name if self.worker else None,
@@ -94,9 +101,13 @@ class Task(Base):
 
 class Worker(Base):
     __tablename__ = 'worker'
+
+    # columns
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False, unique=True)
     maxtasks = Column(Integer, nullable=True)
+
+    # relationships
     tasks = relationship('Task', back_populates='worker', foreign_keys=[Task.worker_id])
     running_tasks = relationship('Task', back_populates='running_worker', foreign_keys=[Task.running_worker_id])
 

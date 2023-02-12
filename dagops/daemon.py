@@ -27,6 +27,7 @@ class Daemon:
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         batch: bool = False,
     ):
+        self.id = uuid.uuid4()
         self.watch_directory = Path(watch_directory)
         self.db = db
         self.create_dag_func = create_dag_func
@@ -44,7 +45,7 @@ class Daemon:
             kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
-                print('handle_tasks', message)
+                print(self.watch_directory, 'handle_tasks', message)
                 task_status = schemas.TaskStatusMessage.parse_raw(message)
                 if task_status.status == TaskStatus.RUNNING:
                     task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
@@ -69,7 +70,15 @@ class Daemon:
                         ),
                     )
 
-            for task in task_crud.read_by_field(self.db, 'status', TaskStatus.PENDING):
+            pending = (
+                self
+                .db
+                .query(models.Task)
+                .filter(models.Task.daemon_id == self.id)
+                .filter(models.Task.status == TaskStatus.PENDING)
+                .all()
+            )
+            for task in pending:
                 all_upstream_success = True
                 for u in task.upstream:
                     if u.status == TaskStatus.SUCCESS:
@@ -86,7 +95,7 @@ class Daemon:
                         )
                         break
                 if all_upstream_success:
-                    if task.task_type == 'dag':
+                    if task.type == 'dag':
                         task_crud.update_by_id(
                             self.db,
                             task.id,
@@ -97,18 +106,20 @@ class Daemon:
                                 running_worker_id=None,
                             ),
                         )
-                    elif task.task_type == 'shell':
+                    elif task.type == 'shell':
+                        print(self.watch_directory, 'seen', seen)
+                        if task.id in seen:
+                            raise RuntimeError(f'Task {task} is already running')
+                        seen.add(task.id)
                         task_crud.update_by_id(
                             self.db,
                             task.id,
                             schemas.TaskUpdate(status=TaskStatus.QUEUED),
                         )
-                        if task.id in seen:
-                            raise RuntimeError(f'Task {task} is already running')
-                        seen.add(task.id)
+                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to CHANNEL_TASK_QUEUE')
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
-                        raise NotImplementedError(f'unsupported task_type {task.task_type}')
+                        raise NotImplementedError(f'unsupported type {task.type}')
 
             if self.max_n_success is not None:
                 n_success = task_crud.n_success(self.db)
@@ -129,8 +140,7 @@ class Daemon:
                 if dep not in dag:
                     raise ValueError(f'dependency {dep} of task {task} not in dag')
 
-    @staticmethod
-    def prepare_dag(graph: schemas.InputDataDag) -> schemas.DagCreate:
+    def prepare_dag(self, graph: schemas.InputDataDag) -> schemas.DagCreate:
         input_data = [None] * len(graph)
         task_to_id = {}
         for i, task in enumerate(graph):
@@ -140,9 +150,10 @@ class Daemon:
         for task, deps in graph.items():
             id_graph[task_to_id[task]] = [task_to_id[dep] for dep in deps]
         dag = schemas.DagCreate(
-            task_type='shell',
+            type='shell',
             tasks_input_data=input_data,
             graph=id_graph,
+            daemon_id=self.id,
         )
         return dag
 
