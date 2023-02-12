@@ -40,7 +40,6 @@ class Daemon:
             self.max_n_success = None
 
     async def handle_tasks(self):  # noqa: C901
-        seen = set()
         while True:
             kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
             if kv is not None:
@@ -107,10 +106,6 @@ class Daemon:
                             ),
                         )
                     elif task.type == 'shell':
-                        print(self.watch_directory, 'seen', seen)
-                        if task.id in seen:
-                            raise RuntimeError(f'Task {task} is already running')
-                        seen.add(task.id)
                         task_crud.update_by_id(
                             self.db,
                             task.id,
