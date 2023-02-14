@@ -27,11 +27,11 @@ class Daemon:
         redis: Redis,
         create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
         batch: bool = False,
-        watch_type: Literal['filesystem', 'redis'] = 'filesystem',
+        storage: Literal['filesystem', 'redis'] = 'filesystem',
     ):
-        if watch_type not in {'filesystem', 'redis'}:
-            raise ValueError(f'unsupported watch_type={watch_type} It must be filesystem or redis')
-        self.watch_type = watch_type
+        if storage not in {'filesystem', 'redis'}:
+            raise ValueError(f'unsupported storage={storage} It must be filesystem or redis')
+        self.storage = storage
         self.id = uuid.uuid4()
         self.watch_directory = Path(watch_directory)
         self.db = db
@@ -188,9 +188,9 @@ class Daemon:
         exclude: frozenset[str] = frozenset({'.DS_Store'}),
     ) -> None:
         while True:
-            if self.watch_type == 'filesystem':
+            if self.storage == 'filesystem':
                 files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
-            elif self.watch_type == 'redis':
+            elif self.storage == 'redis':
                 files = {k.removeprefix(str(self.watch_directory)) for k in await self.redis.keys(str(self.watch_directory) + '*')} - exclude
 
             stale_files_ids = set()
@@ -209,6 +209,7 @@ class Daemon:
                 file_crud.create_many(
                     self.db, [
                         schemas.FileCreate(
+                            storage=self.storage,
                             directory=str(self.watch_directory),
                             file=file,
                         )

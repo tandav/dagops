@@ -15,6 +15,7 @@
 {% for file in files %}
     <tr>
         <td><a href="/files/{{ file.id }}"><code>{{ file.id|string|truncate(8, end='') }}</code></a></td>
+        <td><code>{{ file.storage }}</code></td>
         <td><code>{{ file.directory }}</code></td>
         <td><code>{{ file.file }}</code></td>
         {% if file.dag_id is not none %}

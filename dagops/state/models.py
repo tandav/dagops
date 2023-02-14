@@ -25,6 +25,7 @@ class File(Base):
 
     # columns
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    storage = Column(String, nullable=False)
     directory = Column(String, nullable=False)
     file = Column(String, nullable=False)
     dag_id = Column(UUID, ForeignKey('task.id'), nullable=True)

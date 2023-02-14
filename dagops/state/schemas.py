@@ -144,6 +144,7 @@ class DagCreate(BaseModel):
 
 
 class FileCreate(BaseModel):
+    storage: str
     directory: str
     file: str
 

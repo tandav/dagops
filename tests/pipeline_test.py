@@ -62,7 +62,7 @@ def test_watch_filesystem(db):
             'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
             'WATCH_DIRECTORY': WATCH_DIRECTORY,
             'WATCH_DIRECTORY_BATCH': WATCH_DIRECTORY_BATCH,
-            'WATCH_TYPE': 'filesystem',
+            'STORAGE': 'filesystem',
         },
     ):
         subprocess.check_call([sys.executable, 'examples/main.py'])
@@ -79,7 +79,7 @@ def test_watch_redis(db, init_redis):
             'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
             'WATCH_DIRECTORY': 'watch_dirs:serial:',
             'WATCH_DIRECTORY_BATCH': 'watch_dirs:batch:',
-            'WATCH_TYPE': 'redis',
+            'STORAGE': 'redis',
         },
     ):
         subprocess.check_call([sys.executable, 'examples/main.py'])

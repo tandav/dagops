@@ -52,7 +52,7 @@ async def main():
             db=db,
             redis=redis,
             create_dag_func=create_dag,
-            watch_type=os.environ.get('WATCH_TYPE', 'filesystem'),
+            storage=os.environ.get('STORAGE', 'filesystem'),
         )
 
         daemon2 = Daemon(
@@ -61,7 +61,7 @@ async def main():
             redis=redis,
             create_dag_func=create_batch_dag,
             batch=True,
-            watch_type=os.environ.get('WATCH_TYPE', 'filesystem'),
+            storage=os.environ.get('STORAGE', 'filesystem'),
         )
 
         workers = await prepare_workers(db, redis)
