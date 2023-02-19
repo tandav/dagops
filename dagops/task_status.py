@@ -2,8 +2,16 @@ import enum
 
 
 class TaskStatus(enum.Enum):
+    """
+    QUEUED means waiting worker to pick up
+    """
     PENDING = 'PENDING'
-    QUEUED = 'QUEUED'  # waiting worker to pick up
+    QUEUED_CACHE_CHECK = 'QUEUED_CACHE_CHECK'
+    CACHE_CHECK = 'CACHE_CHECK'
+    CACHE_EXISTS = 'CACHE_EXISTS'
+    CACHE_NOT_EXISTS = 'CACHE_NOT_EXISTS'
+    CACHE_CHECK_FAILED = 'CACHE_CHECK_FAILED'
+    QUEUED_RUN = 'QUEUED_RUN'
     RUNNING = 'RUNNING'
     SUCCESS = 'SUCCESS'
     FAILED = 'FAILED'

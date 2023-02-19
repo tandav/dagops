@@ -114,7 +114,7 @@ class Daemon:
                         task_crud.update_by_id(
                             self.db,
                             task.id,
-                            schemas.TaskUpdate(status=TaskStatus.QUEUED),
+                            schemas.TaskUpdate(status=TaskStatus.QUEUED_RUN),
                         )
                         print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to CHANNEL_TASK_QUEUE')
                         await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
