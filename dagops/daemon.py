@@ -45,38 +45,41 @@ class Daemon:
         else:
             self.max_n_success = None
 
+    async def handle_worker_messages(self):
+        kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
+        if kv is not None:
+            _, message = kv
+            print(self.watch_directory, 'handle_tasks', message)
+            worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
+            if worker_task_status.status == WorkerTaskStatus.RUNNING:
+                task = task_crud.read_by_id(self.db, uuid.UUID(worker_task_status.id))
+                task_crud.update_by_id(
+                    self.db,
+                    task.id,
+                    schemas.TaskUpdate(
+                        status=TaskStatus.RUNNING,
+                        started_at=datetime.datetime.now(tz=datetime.timezone.utc),
+                        running_worker_id=task.worker.id,
+                    ),
+                )
+            elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
+                task_crud.update_by_id(
+                    self.db,
+                    uuid.UUID(worker_task_status.id),
+                    schemas.TaskUpdate(
+                        status={
+                            WorkerTaskStatus.SUCCESS: TaskStatus.SUCCESS,
+                            WorkerTaskStatus.FAILED: TaskStatus.FAILED,
+                        }[worker_task_status.status],
+                        stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
+                        output_data=worker_task_status.output_data,
+                        running_worker_id=None,
+                    ),
+                )
+
     async def handle_tasks(self):  # noqa: C901
         while True:
-            kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
-            if kv is not None:
-                _, message = kv
-                print(self.watch_directory, 'handle_tasks', message)
-                worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
-                if worker_task_status.status == WorkerTaskStatus.RUNNING:
-                    task = task_crud.read_by_id(self.db, uuid.UUID(worker_task_status.id))
-                    task_crud.update_by_id(
-                        self.db,
-                        task.id,
-                        schemas.TaskUpdate(
-                            status=TaskStatus.RUNNING,
-                            started_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                            running_worker_id=task.worker.id,
-                        ),
-                    )
-                elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
-                    task_crud.update_by_id(
-                        self.db,
-                        uuid.UUID(worker_task_status.id),
-                        schemas.TaskUpdate(
-                            status={
-                                WorkerTaskStatus.SUCCESS: TaskStatus.SUCCESS,
-                                WorkerTaskStatus.FAILED: TaskStatus.FAILED,
-                            }[worker_task_status.status],
-                            stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                            output_data=worker_task_status.output_data,
-                            running_worker_id=None,
-                        ),
-                    )
+            await self.handle_worker_messages()
 
             pending = (
                 self
