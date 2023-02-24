@@ -17,3 +17,10 @@ class TaskStatus(enum.Enum):
     SUCCESS = 'SUCCESS'
     FAILED = 'FAILED'
     CANCELED = 'CANCELED'
+
+
+class WorkerTaskStatus(enum.Enum):
+    QUEUED = 'QUEUED'
+    RUNNING = 'RUNNING'
+    SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'

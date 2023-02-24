@@ -7,7 +7,7 @@ from dagops import constant
 from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
-from dagops.task_status import TaskStatus
+from dagops.task_status import WorkerTaskStatus
 
 
 class Worker:
@@ -84,9 +84,9 @@ class Worker:
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
-                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.TaskStatusMessage(
+                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.WorkerTaskStatusMessage(
                     id=task.id,
-                    status=TaskStatus.RUNNING,
+                    status=WorkerTaskStatus.RUNNING,
                 ).json(),
             )
             await pipeline.execute()
@@ -103,14 +103,14 @@ class Worker:
                 task_run_result = aiotask.result()
 
                 if task_run_result.exists_returncode == 0 or task_run_result.returncode == 0:
-                    status = TaskStatus.SUCCESS
+                    status = WorkerTaskStatus.SUCCESS
                     returncode = 0
                 else:
-                    status = TaskStatus.FAILED
+                    status = WorkerTaskStatus.FAILED
                     returncode = task_run_result.returncode or task_run_result.exists_returncode
 
                 task_id = self.aiotask_to_task_id[aiotask]
-                status_message = schemas.TaskStatusMessage(
+                status_message = schemas.WorkerTaskStatusMessage(
                     id=task_id,
                     status=status,
                     output_data={'returncode': returncode},

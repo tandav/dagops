@@ -8,6 +8,7 @@ from pydantic import root_validator
 
 from dagops import constant
 from dagops.task_status import TaskStatus
+from dagops.task_status import WorkerTaskStatus
 
 # =============================================================================
 
@@ -55,9 +56,9 @@ class TaskMessage(BaseModel):
     daemon_id: str
 
 
-class TaskStatusMessage(BaseModel):
+class WorkerTaskStatusMessage(BaseModel):
     id: str
-    status: TaskStatus
+    status: WorkerTaskStatus
     output_data: dict | None = None
 
 

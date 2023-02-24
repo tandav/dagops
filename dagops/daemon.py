@@ -17,6 +17,7 @@ from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 from dagops.task_status import TaskStatus
+from dagops.task_status import WorkerTaskStatus
 
 
 class Daemon:
@@ -50,9 +51,9 @@ class Daemon:
             if kv is not None:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
-                task_status = schemas.TaskStatusMessage.parse_raw(message)
-                if task_status.status == TaskStatus.RUNNING:
-                    task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
+                worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
+                if worker_task_status.status == WorkerTaskStatus.RUNNING:
+                    task = task_crud.read_by_id(self.db, uuid.UUID(worker_task_status.id))
                     task_crud.update_by_id(
                         self.db,
                         task.id,
@@ -62,14 +63,17 @@ class Daemon:
                             running_worker_id=task.worker.id,
                         ),
                     )
-                elif task_status.status in {TaskStatus.SUCCESS, TaskStatus.FAILED}:
+                elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
                     task_crud.update_by_id(
                         self.db,
-                        uuid.UUID(task_status.id),
+                        uuid.UUID(worker_task_status.id),
                         schemas.TaskUpdate(
-                            status=task_status.status,
+                            status={
+                                WorkerTaskStatus.SUCCESS: TaskStatus.SUCCESS,
+                                WorkerTaskStatus.FAILED: TaskStatus.FAILED,
+                            }[worker_task_status.status],
                             stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                            output_data=task_status.output_data,
+                            output_data=worker_task_status.output_data,
                             running_worker_id=None,
                         ),
                     )
