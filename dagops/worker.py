@@ -66,7 +66,7 @@ class Worker:
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
-                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.TaskOutputMessage(
+                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.TaskStatusMessage(
                     id=task.id,
                     status=TaskStatus.RUNNING,
                 ).json(),
@@ -85,7 +85,7 @@ class Worker:
                 p = aiotask.result()
                 assert p.returncode is not None
                 task_id = self.aiotask_to_task_id[aiotask]
-                status_message = schemas.TaskOutputMessage(
+                status_message = schemas.TaskStatusMessage(
                     id=task_id,
                     status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
                     output_data={'returncode': p.returncode},
