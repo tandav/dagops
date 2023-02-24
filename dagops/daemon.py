@@ -116,8 +116,9 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(status=TaskStatus.QUEUED_RUN),
                         )
-                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to QUEUE_TASK')
-                        await self.redis.lpush(constant.QUEUE_TASK, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
+                        queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
+                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
+                        await self.redis.lpush(queue, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
                         raise NotImplementedError(f'unsupported type {task.type}')
 
