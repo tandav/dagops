@@ -52,7 +52,7 @@ class TaskMessage(BaseModel):
     daemon_id: str
 
 
-class TaskStatusMessage(BaseModel):
+class TaskOutputMessage(BaseModel):
     id: str
     status: TaskStatus
     output_data: dict | None = None

@@ -50,7 +50,7 @@ class Daemon:
             if kv is not None:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
-                task_status = schemas.TaskStatusMessage.parse_raw(message)
+                task_status = schemas.TaskOutputMessage.parse_raw(message)
                 if task_status.status == TaskStatus.RUNNING:
                     task = task_crud.read_by_id(self.db, uuid.UUID(task_status.id))
                     task_crud.update_by_id(
