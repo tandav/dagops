@@ -44,6 +44,32 @@ class Worker:
         await p.communicate()
         return p
 
+    async def run_task(self, task: schemas.TaskMessage) -> schemas.TaskRunResult:
+        """MVP: without sending status updates to daemon"""
+        exists_returncode = None
+        if task.input_data.exists_command is not None:
+            exists_p = await self.run_subprocess(
+                f'{task.id}:exists',
+                task.input_data.exists_command,
+                task.input_data.exists_env,
+            )
+            if exists_p.returncode == 0:
+                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+            elif exists_p.returncode == constant.NOT_EXISTS_RETURNCODE:
+                exists_returncode = exists_p.returncode
+            else:
+                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+        print('-----> run_task', task, 'exists_returncode=', exists_returncode)
+        p = await self.run_subprocess(
+            task.id,
+            task.input_data.command,
+            task.input_data.env,
+        )
+        return schemas.TaskRunResult(
+            exists_returncode=exists_returncode,
+            returncode=p.returncode,
+        )
+
     async def run_tasks_from_queue(self):
         while True:
             if len(self.aiotask_to_task_id) >= self.maxtasks:
@@ -54,15 +80,7 @@ class Worker:
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.task_id_to_daemon_id[task.id] = task.daemon_id
-            self.aiotask_to_task_id[
-                asyncio.create_task(
-                    self.run_subprocess(
-                        task.id,
-                        task.input_data.command,
-                        task.input_data.env,
-                    ),
-                )
-            ] = task.id
+            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
@@ -82,13 +100,20 @@ class Worker:
                 continue
             done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             for aiotask in done:
-                p = aiotask.result()
-                assert p.returncode is not None
+                task_run_result = aiotask.result()
+
+                if task_run_result.exists_returncode == 0 or task_run_result.returncode == 0:
+                    status = TaskStatus.SUCCESS
+                    returncode = 0
+                else:
+                    status = TaskStatus.FAILED
+                    returncode = task_run_result.returncode or task_run_result.exists_returncode
+
                 task_id = self.aiotask_to_task_id[aiotask]
                 status_message = schemas.TaskStatusMessage(
                     id=task_id,
-                    status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
-                    output_data={'returncode': p.returncode},
+                    status=status,
+                    output_data={'returncode': returncode},
                 )
                 daemon_id = self.task_id_to_daemon_id[task_id]
                 await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())

@@ -6,6 +6,7 @@ CHANNEL_AIO_TASKS = f'{PREFIX}:aio_tasks'
 CHANNEL_FILES = f'{PREFIX}:files'
 LIST_LOGS = f'{PREFIX}:logs'
 LIST_ERROR = f'{PREFIX}:errors'
+LOCKS = f'{PREFIX}:locks'
 
 workers = {'cpu': 32, 'gpu': 1}
 NOT_EXISTS_RETURNCODE = 87

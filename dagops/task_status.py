@@ -6,6 +6,7 @@ class TaskStatus(enum.Enum):
     QUEUED means waiting worker to pick up
     """
     PENDING = 'PENDING'
+    WAIT_CACHE_PATH_RELEASE = 'WAIT_CACHE_PATH_RELEASE'
     QUEUED_CACHE_CHECK = 'QUEUED_CACHE_CHECK'
     CACHE_CHECK = 'CACHE_CHECK'
     CACHE_EXISTS = 'CACHE_EXISTS'

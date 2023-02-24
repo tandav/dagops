@@ -17,7 +17,7 @@ def create_dag(path: str) -> InputDataDag:
     counter_cmd = [sys.executable, '-u', 'examples/commands/counter.py', counter_key]
     counter_task = TaskInfo(
         command=counter_cmd,
-        exists_command=exists.redis_key(counter_key),
+        exists_command=exists.check(f'redis://{counter_key}'),
         worker_name='cpu',
     )
     graph = {

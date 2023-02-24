@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import root_validator
 
+from dagops import constant
 from dagops.task_status import TaskStatus
 
 # =============================================================================
@@ -120,6 +121,20 @@ class TaskUpdate(BaseModel):
     running_worker_id: UUID | None = None
     upstream: list[UUID] | None = None
 
+
+class TaskRunResult(BaseModel):
+    exists_returncode: int | None = None
+    returncode: int | None = None
+
+    @root_validator
+    def validate_returncodes(cls, values):
+        if values['exists_returncode'] is None and values['returncode'] is None:
+            raise ValueError('at least one of returncodes should be set')
+        if values['exists_returncode'] is None:
+            return values
+        if values['exists_returncode'] != constant.NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
+            raise ValueError(f'task should be run only if exists check not passed {values}')
+        return values
 
 # =============================================================================
 
