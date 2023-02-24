@@ -20,18 +20,8 @@ def create_dag(path: str) -> InputDataDag:
         exists_command=exists.redis_key(counter_key),
         worker_name='cpu',
     )
-    # dummy_task_1 = TaskInfo(
-    #     command=['ls'],
-    #     worker_name='cpu'
-    # )
-    # dummy_task_2 = TaskInfo(
-    #     command=['ls'],
-    #     worker_name='cpu'
-    # )
     graph = {
         counter_task: [],
-        # dummy_task_1: [counter_task],
-        # dummy_task_2: [counter_task],
     }
     return graph
 

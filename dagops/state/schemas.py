@@ -42,7 +42,8 @@ class ShellTaskInputData(BaseModel):
     def __hash__(self):
         command = tuple(self.command)
         env = frozenset(self.env.items()) if self.env is not None else None
-        return hash((command, env))
+        exists_command = tuple(self.exists_command) if self.exists_command is not None else None
+        return hash((command, env, exists_command))
 
 
 class TaskMessage(BaseModel):

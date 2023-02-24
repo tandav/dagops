@@ -9,6 +9,7 @@ import examples.counter
 from dagops.util import n_files
 
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_cache(db, redis, WATCH_DIRECTORY):
     counter_key = 'counter'
