@@ -46,7 +46,7 @@ class Daemon:
 
     async def handle_tasks(self):  # noqa: C901
         while True:
-            kv = await self.redis.brpop(constant.CHANNEL_TASK_STATUS, timeout=constant.SLEEP_TIME)
+            kv = await self.redis.brpop(constant.QUEUE_TASK_STATUS, timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
@@ -116,8 +116,8 @@ class Daemon:
                             task.id,
                             schemas.TaskUpdate(status=TaskStatus.QUEUED_RUN),
                         )
-                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to CHANNEL_TASK_QUEUE')
-                        await self.redis.lpush(constant.CHANNEL_TASK_QUEUE, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
+                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to QUEUE_TASK')
+                        await self.redis.lpush(constant.QUEUE_TASK, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
                     else:
                         raise NotImplementedError(f'unsupported type {task.type}')
 
@@ -223,8 +223,8 @@ class Daemon:
     async def cancel_orphans(self):
         pipeline = self.redis.pipeline()
         pipeline.delete(self.files_channel)
-        pipeline.delete(constant.CHANNEL_TASK_QUEUE)
-        pipeline.delete(constant.CHANNEL_TASK_STATUS)
+        pipeline.delete(f'{constant.QUEUE_TASK}:*')
+        pipeline.delete(constant.QUEUE_TASK_STATUS)
         pipeline.delete(f'{constant.CHANNEL_AIO_TASKS}:*')
         await pipeline.execute()
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()

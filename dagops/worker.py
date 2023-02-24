@@ -44,14 +44,14 @@ class Worker:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
             print('run_tasks_from_queue', len(self.aiotask_to_task_id))
-            _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+            _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
-                constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
+                constant.QUEUE_TASK_STATUS, schemas.TaskStatusMessage(
                     id=task.id,
                     status=TaskStatus.RUNNING,
                 ).json(),
@@ -74,7 +74,7 @@ class Worker:
                     status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
                     output_data={'returncode': p.returncode},
                 )
-                await self.redis.lpush(constant.CHANNEL_TASK_STATUS, status_message.json())
+                await self.redis.lpush(constant.QUEUE_TASK_STATUS, status_message.json())
                 del self.aiotask_to_task_id[aiotask]
                 print('EXITING TASK', status_message)
 
