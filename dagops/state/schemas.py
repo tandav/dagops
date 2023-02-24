@@ -36,14 +36,16 @@ class WithWorkerName(BaseModel):
 
 class ShellTaskInputData(BaseModel):
     command: list[str]
-    exists_command: list[str] | None = None
     env: dict[str, str] | None = None
+    exists_command: list[str] | None = None
+    exists_env: dict[str, str] | None = None
 
     def __hash__(self):
         command = tuple(self.command)
         env = frozenset(self.env.items()) if self.env is not None else None
         exists_command = tuple(self.exists_command) if self.exists_command is not None else None
-        return hash((command, env, exists_command))
+        exists_env = frozenset(self.exists_env.items()) if self.exists_env is not None else None
+        return hash((command, env, exists_command, exists_env))
 
 
 class TaskMessage(BaseModel):
