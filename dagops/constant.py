@@ -7,3 +7,4 @@ LIST_LOGS = 'dagops:logs'
 LIST_ERROR = 'dagops:errors'
 
 workers = {'cpu': 32, 'gpu': 1}
+NOT_EXISTS_RETURNCODE = 87
