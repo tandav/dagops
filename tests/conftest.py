@@ -5,13 +5,7 @@ import pytest
 from redis import Redis
 
 from dagops.state import database
-
-
-def drop_redis_keys(redis: Redis, prefix: str):
-    pipeline = redis.pipeline()
-    for key in redis.keys(prefix + '*'):
-        pipeline.delete(key)
-    pipeline.execute()
+from dagops.util import drop_redis_keys
 
 
 @pytest.fixture
@@ -35,7 +29,7 @@ def db():
 
 
 @pytest.fixture
-def init_redis(WATCH_DIRECTORY, WATCH_DIRECTORY_BATCH):
+def redis(WATCH_DIRECTORY, WATCH_DIRECTORY_BATCH):
     redis = Redis.from_url(os.environ['REDIS_URL'], decode_responses=True)
     drop_redis_keys(redis, 'watch_dirs:')
     for p in Path(WATCH_DIRECTORY).iterdir():

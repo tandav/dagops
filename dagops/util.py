@@ -4,6 +4,7 @@ from pathlib import Path
 
 import aiofiles.os
 import humanize
+from redis import Redis
 
 
 def dirset(
@@ -63,3 +64,17 @@ def format_time(
     if pad:
         out = out.rjust(17)
     return out
+
+
+def n_files(
+    directory: str,
+    exclude: frozenset[str] = frozenset({'.DS_Store'}),
+) -> int:
+    return sum(1 for p in Path(directory).iterdir() if p.name not in exclude)
+
+
+def drop_redis_keys(redis: Redis, prefix: str):
+    pipeline = redis.pipeline()
+    for key in redis.keys(prefix + '*'):
+        pipeline.delete(key)
+    pipeline.execute()

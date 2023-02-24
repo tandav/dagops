@@ -36,6 +36,7 @@ class WithWorkerName(BaseModel):
 
 class ShellTaskInputData(BaseModel):
     command: list[str]
+    exists_command: list[str] | None = None
     env: dict[str, str] | None = None
 
     def __hash__(self):

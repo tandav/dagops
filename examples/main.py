@@ -12,7 +12,7 @@ from dagops.worker import run_workers
 
 
 def create_dag(file: str) -> InputDataDag:
-    command = [sys.executable, '-u', 'examples/long_command.py']
+    command = [sys.executable, '-u', 'examples/commands/long_command.py']
     common_env = {'TASK_NAME': file}
     if N_ITERATIONS := os.environ.get('N_ITERATIONS'):
         common_env['N_ITERATIONS'] = N_ITERATIONS
@@ -32,7 +32,7 @@ def create_dag(file: str) -> InputDataDag:
 
 
 def create_batch_dag(files: list[str]) -> InputDataDag:
-    command = [sys.executable, 'examples/batch_task.py', '--file', *files]
+    command = [sys.executable, 'examples/commands/batch_task.py', '--file', *files]
     a = TaskInfo(command=command, env={'SUBTASK': 'a'}, worker_name='cpu')
     b = TaskInfo(command=command, env={'SUBTASK': 'b'}, worker_name='cpu')
     graph = {
