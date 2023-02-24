@@ -27,15 +27,20 @@ class Worker:
     def __repr__(self):
         return f'Worker({self.name}, {self.maxtasks})'
 
-    async def run_task(self, task: schemas.TaskMessage) -> asyncio.subprocess.Process:
+    async def run_subprocess(
+        self,
+        log_id: str,
+        command: list[str],
+        env: dict[str, str] | None = None,
+    ) -> asyncio.subprocess.Process:
         p = await asyncio.create_subprocess_exec(
-            *task.input_data.command,
-            env=task.input_data.env,
+            *command,
+            env=env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
         async for line in p.stdout:
-            await self.redis.rpush(f'{constant.LIST_LOGS}:{task.id}', line)
+            await self.redis.rpush(f'{constant.LIST_LOGS}:{log_id}', line)
         await p.communicate()
         return p
 
@@ -49,7 +54,15 @@ class Worker:
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
             self.task_id_to_daemon_id[task.id] = task.daemon_id
-            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
+            self.aiotask_to_task_id[
+                asyncio.create_task(
+                    self.run_subprocess(
+                        task.id,
+                        task.input_data.command,
+                        task.input_data.env,
+                    ),
+                )
+            ] = task.id
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
