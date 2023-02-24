@@ -1,10 +1,11 @@
 SLEEP_TIME = 0.1
-QUEUE_TASK = 'dagops:queue:task'
-QUEUE_TASK_STATUS = 'dagops:queue:task_status'
-CHANNEL_AIO_TASKS = 'dagops:aio_tasks'
-CHANNEL_FILES = 'dagops:files'
-LIST_LOGS = 'dagops:logs'
-LIST_ERROR = 'dagops:errors'
+PREFIX = 'dagops'
+QUEUE_TASK = f'{PREFIX}:queue:task'
+QUEUE_TASK_STATUS = f'{PREFIX}:queue:task_status'
+CHANNEL_AIO_TASKS = f'{PREFIX}:aio_tasks'
+CHANNEL_FILES = f'{PREFIX}:files'
+LIST_LOGS = f'{PREFIX}:logs'
+LIST_ERROR = f'{PREFIX}:errors'
 
 workers = {'cpu': 32, 'gpu': 1}
 NOT_EXISTS_RETURNCODE = 87
