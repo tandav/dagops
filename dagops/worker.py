@@ -22,6 +22,7 @@ class Worker:
         self.aiotask_to_task_id = {}
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
+        self.task_id_to_daemon_id = {}
 
     def __repr__(self):
         return f'Worker({self.name}, {self.maxtasks})'
@@ -47,11 +48,12 @@ class Worker:
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
             print('run_tasks_from_queue', task)
+            self.task_id_to_daemon_id[task.id] = task.daemon_id
             self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
             pipeline = self.redis.pipeline()
             pipeline.lpush(self.aio_tasks_channel, task.id)
             pipeline.lpush(
-                constant.QUEUE_TASK_STATUS, schemas.TaskStatusMessage(
+                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.TaskStatusMessage(
                     id=task.id,
                     status=TaskStatus.RUNNING,
                 ).json(),
@@ -69,13 +71,16 @@ class Worker:
             for aiotask in done:
                 p = aiotask.result()
                 assert p.returncode is not None
+                task_id = self.aiotask_to_task_id[aiotask]
                 status_message = schemas.TaskStatusMessage(
-                    id=self.aiotask_to_task_id[aiotask],
+                    id=task_id,
                     status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
                     output_data={'returncode': p.returncode},
                 )
-                await self.redis.lpush(constant.QUEUE_TASK_STATUS, status_message.json())
+                daemon_id = self.task_id_to_daemon_id[task_id]
+                await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())
                 del self.aiotask_to_task_id[aiotask]
+                del self.task_id_to_daemon_id[task_id]
                 print('EXITING TASK', status_message)
 
     async def __call__(self):

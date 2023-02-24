@@ -46,7 +46,7 @@ class Daemon:
 
     async def handle_tasks(self):  # noqa: C901
         while True:
-            kv = await self.redis.brpop(constant.QUEUE_TASK_STATUS, timeout=constant.SLEEP_TIME)
+            kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
@@ -118,7 +118,13 @@ class Daemon:
                         )
                         queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
                         print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
-                        await self.redis.lpush(queue, schemas.TaskMessage(id=str(task.id), input_data=task.input_data).json())
+                        await self.redis.lpush(
+                            queue, schemas.TaskMessage(
+                                id=str(task.id),
+                                input_data=task.input_data,
+                                daemon_id=str(self.id),
+                            ).json(),
+                        )
                     else:
                         raise NotImplementedError(f'unsupported type {task.type}')
 
@@ -225,7 +231,7 @@ class Daemon:
         pipeline = self.redis.pipeline()
         pipeline.delete(self.files_channel)
         pipeline.delete(f'{constant.QUEUE_TASK}:*')
-        pipeline.delete(constant.QUEUE_TASK_STATUS)
+        pipeline.delete(f'{constant.QUEUE_TASK_STATUS}:*')
         pipeline.delete(f'{constant.CHANNEL_AIO_TASKS}:*')
         await pipeline.execute()
         orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()

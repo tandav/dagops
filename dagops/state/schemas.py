@@ -49,6 +49,7 @@ class ShellTaskInputData(BaseModel):
 class TaskMessage(BaseModel):
     id: str
     input_data: ShellTaskInputData
+    daemon_id: str
 
 
 class TaskStatusMessage(BaseModel):
