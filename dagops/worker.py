@@ -7,7 +7,7 @@ from dagops import constant
 from dagops.dependencies import get_db_cm
 from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
-from dagops.task_status import WorkerTaskStatus
+from dagops.status import WorkerTaskStatus
 
 
 class Worker:
