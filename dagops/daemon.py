@@ -48,24 +48,23 @@ class Daemon:
             self.max_n_success = None
 
     async def handle_worker_messages(self):
-        kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
-        if kv is not None:
-            _, message = kv
-            print(self.watch_directory, 'handle_tasks', message)
-            worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
+        while True:
+            kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
+            if kv is not None:
+                _, message = kv
+                print(self.watch_directory, 'handle_tasks', message)
+                worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
 
-            fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
-            if worker_task_status.status == WorkerTaskStatus.RUNNING:
-                await fsm_task.run()
-            if worker_task_status.status == WorkerTaskStatus.SUCCESS:
-                await fsm_task.succeed(output_data=worker_task_status.output_data)
-            if worker_task_status.status == WorkerTaskStatus.FAILED:
-                await fsm_task.fail(output_data=worker_task_status.output_data)
+                fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
+                if worker_task_status.status == WorkerTaskStatus.RUNNING:
+                    await fsm_task.run()
+                if worker_task_status.status == WorkerTaskStatus.SUCCESS:
+                    await fsm_task.succeed(output_data=worker_task_status.output_data)
+                if worker_task_status.status == WorkerTaskStatus.FAILED:
+                    await fsm_task.fail(output_data=worker_task_status.output_data)
 
     async def handle_tasks(self):
         while True:
-            await self.handle_worker_messages()
-
             for task in (
                 self
                 .db
@@ -204,5 +203,6 @@ class Daemon:
         await asyncio.gather(
             self.do_watch_directory(),
             self.update_files_dags(),
+            self.handle_worker_messages(),
             self.handle_tasks(),
         )
