@@ -1,18 +1,27 @@
 import datetime
+import os
 
+from redis import Redis
 from sqlalchemy.orm import Session
 from transitions import Machine
 
+from dagops import constant
 from dagops.state import models
 from dagops.state import schemas
 from dagops.status import TaskStatus
 
 
 class Task:
-    def __init__(self, db: Session, db_obj: models.Task):
-        self.db = db
+    def __init__(
+        self,
+        db_obj: models.Task,
+        db: Session,
+        redis: Redis,
+    ):
         db.refresh(db_obj)
         self.db_obj = db_obj
+        self.db = db
+        self.redis = Redis.from_url(os.environ['REDIS_URL'])  # todo use async redis from args and use AsyncMachine
         self.machine = Machine(
             model=self,
             states=TaskStatus,
@@ -26,7 +35,7 @@ class Task:
         self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after='update_db')
 
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.SUCCESS, conditions=['all_upstream_success', 'is_dag'], after='update_db')
-        self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, conditions=['all_upstream_success'], after='update_db')
+        self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, conditions=['all_upstream_success'], after=['update_db', 'send_message_to_worker'])
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.FAILED, conditions=['any_upstream_failed'], after='update_db')
 
         self.machine.add_transition('run', TaskStatus.QUEUED_RUN, TaskStatus.RUNNING, unless=['is_dag'], after=['update_started_at', 'update_db'])
@@ -40,10 +49,10 @@ class Task:
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
 
-    def all_upstream_success(self, upstream: list[models.Task]):
+    def all_upstream_success(self, upstream: list[models.Task], **kwargs):
         return all(u.status == TaskStatus.SUCCESS for u in upstream)
 
-    def any_upstream_failed(self, upstream: list[models.Task]):
+    def any_upstream_failed(self, upstream: list[models.Task], **kwargs):
         return any(u.status == TaskStatus.FAILED for u in upstream)
 
     def is_dag(self, **kwargs):
@@ -67,3 +76,13 @@ class Task:
 
     def update_stopped_at(self, **kwargs):
         self.db_obj.stopped_at = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    def send_message_to_worker(self, **kwargs):
+        queue = f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}'
+        self.redis.lpush(
+            queue, schemas.TaskMessage(
+                id=str(self.db_obj.id),
+                input_data=self.db_obj.input_data,
+                daemon_id=str(self.db_obj.daemon_id),
+            ).json(),
+        )

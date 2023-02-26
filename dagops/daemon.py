@@ -62,7 +62,7 @@ class Daemon:
             if worker_task_status.status == WorkerTaskStatus.FAILED:
                 fsm_task.fail(output_data=worker_task_status.output_data)
 
-    async def handle_tasks(self):  # noqa: C901
+    async def handle_tasks(self):
         while True:
             await self.handle_worker_messages()
 
@@ -77,16 +77,6 @@ class Daemon:
                 fsm_task = self.fsm_tasks[task.id]
                 fsm_task.check_upstream(upstream=task.upstream)
 
-                if fsm_task.state == TaskStatus.QUEUED_RUN:
-                    queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
-                    print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
-                    await self.redis.lpush(
-                        queue, schemas.TaskMessage(
-                            id=str(task.id),
-                            input_data=task.input_data,
-                            daemon_id=str(self.id),
-                        ).json(),
-                    )
             if self.max_n_success is not None:
                 n_success = task_crud.n_success(self.db)
                 print(f'{n_success=} / {self.max_n_success=}')
@@ -129,7 +119,7 @@ class Daemon:
         dag = self.prepare_dag(dag)
         dag_head_task, tasks = dag_crud.create(self.db, dag)
         for task in tasks:
-            fsm_task = fsm.Task(self.db, task)
+            fsm_task = fsm.Task(task, self.db, self.redis)
             fsm_task.wait_upstream()
             self.fsm_tasks[task.id] = fsm_task
         print('dag for file', file, 'created')
