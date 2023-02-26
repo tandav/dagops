@@ -100,15 +100,10 @@ class Daemon:
                         break
                 if all_upstream_success:
                     if task.type == 'dag':
-                        task_crud.update_by_id(
-                            self.db,
-                            task.id,
-                            schemas.TaskUpdate(
-                                status=TaskStatus.SUCCESS,
-                                started_at=min(u.started_at for u in task.upstream),
-                                stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                                running_worker_id=None,
-                            ),
+                        fsm_task.succeed(
+                            started_at=min(u.started_at for u in task.upstream),
+                            stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
+                            running_worker_id=None,
                         )
                     elif task.type == 'shell':
                         fsm_task.queue_run()

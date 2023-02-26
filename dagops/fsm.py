@@ -29,9 +29,12 @@ class Task:
         self.machine.add_transition('queue_run', TaskStatus.PENDING, TaskStatus.QUEUED_RUN, after='update_db')
         self.machine.add_transition('run', TaskStatus.QUEUED_RUN, TaskStatus.RUNNING, after='update_db')
         self.machine.add_transition('succeed', TaskStatus.RUNNING, TaskStatus.SUCCESS, after='update_db')
-        self.machine.add_transition('succeed_dag', TaskStatus.RUNNING, TaskStatus.SUCCESS, after='update_db')
+        self.machine.add_transition('succeed', TaskStatus.PENDING, TaskStatus.SUCCESS, after='update_db', conditions=['is_dag'])  # todo: source should be WAIT_UPSTREAM
         self.machine.add_transition('fail', TaskStatus.RUNNING, TaskStatus.FAILED, after='update_db')
         self.machine.add_transition('cancel', '*', TaskStatus.CANCELED)
+
+    def is_dag(self, **kwargs):
+        return self.db_task.type == 'dag'
 
     def update_db(self, **kwargs):
         self.db_task = task_crud.update_by_id(
