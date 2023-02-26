@@ -40,6 +40,7 @@ class Daemon:
         self.batch = batch
         self.redis = redis
         self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
+        self.fsm_tasks = {}
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
             self.max_n_success = int(MAX_N_SUCCESS)
         else:
@@ -51,6 +52,8 @@ class Daemon:
             _, message = kv
             print(self.watch_directory, 'handle_tasks', message)
             worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
+            
+            fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
             if worker_task_status.status == WorkerTaskStatus.RUNNING:
                 task = task_crud.read_by_id(self.db, uuid.UUID(worker_task_status.id))
                 task_crud.update_by_id(
@@ -59,7 +62,6 @@ class Daemon:
                     schemas.TaskUpdate(
                         status=TaskStatus.RUNNING,
                         started_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                        running_worker_id=task.worker.id,
                     ),
                 )
             elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
@@ -175,7 +177,9 @@ class Daemon:
         dag = self.create_dag_func(file)
         self.validate_dag(dag)
         dag = self.prepare_dag(dag)
-        dag_head_task = dag_crud.create(self.db, dag)
+        dag_head_task, task_ids = dag_crud.create(self.db, dag)
+        for task_id in task_ids:
+            self.fsm_tasks[task_id] = fsm.Task(self.db, task_id)
         print('dag for file', file, 'created')
         return dag_head_task
 

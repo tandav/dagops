@@ -23,7 +23,8 @@ class DagCRUD:
         self,
         db: Session,
         dag: DagCreate,
-    ) -> models.Task:
+    ) -> tuple[models.Task, set[uuid.UUID]]:
+        task_ids = set()
         head_task = models.Task(
             id=uuid.uuid4(),
             type='dag',
@@ -31,12 +32,14 @@ class DagCRUD:
             daemon_id=dag.daemon_id,
             status=TaskStatus.PENDING,
         )
+        task_ids.add(head_task.id)
         db.add(head_task)
 
         task_input_data_id_to_db_task = {}
         for task_input_data_id in graphlib.TopologicalSorter(dag.graph).static_order():
             input_data = dag.tasks_input_data[task_input_data_id]
             db_task = models.Task(
+                id=uuid.uuid4(),
                 type=dag.type,
                 input_data=input_data,
                 worker=read_worker(db, input_data.pop('worker_name')),
@@ -45,13 +48,14 @@ class DagCRUD:
                 daemon_id=dag.daemon_id,
                 status=TaskStatus.PENDING,
             )
+            task_ids.add(db_task.id)
             db.add(db_task)
             task_input_data_id_to_db_task[task_input_data_id] = db_task
 
         head_task.upstream = list(task_input_data_id_to_db_task.values())
         db.commit()
         db.refresh(head_task)
-        return head_task
+        return head_task, task_ids
 
 
 dag_crud = DagCRUD()
