@@ -56,69 +56,37 @@ class Daemon:
 
             fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
             if worker_task_status.status == WorkerTaskStatus.RUNNING:
-                fsm_task.run(
-                    started_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                )
-            elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
-                kwargs = {
-                    'stopped_at': datetime.datetime.now(tz=datetime.timezone.utc),
-                    'output_data': worker_task_status.output_data,
-                }
-                if worker_task_status.status == WorkerTaskStatus.SUCCESS:
-                    fsm_task.succeed(**kwargs)
-                if worker_task_status.status == WorkerTaskStatus.FAILED:
-                    fsm_task.fail(**kwargs)
+                fsm_task.run()
+            if worker_task_status.status == WorkerTaskStatus.SUCCESS:
+                fsm_task.succeed(output_data=worker_task_status.output_data)
+            if worker_task_status.status == WorkerTaskStatus.FAILED:
+                fsm_task.fail(output_data=worker_task_status.output_data)
 
     async def handle_tasks(self):  # noqa: C901
         while True:
             await self.handle_worker_messages()
 
-            waiting_upstream = (
+            for task in (
                 self
                 .db
                 .query(models.Task)
                 .filter(models.Task.daemon_id == self.id)
                 .filter(models.Task.status == TaskStatus.WAIT_UPSTREAM)
                 .all()
-            )
-            for task in waiting_upstream:
+            ):
                 fsm_task = self.fsm_tasks[task.id]
-                all_upstream_success = True
-                for u in task.upstream:
-                    if u.status == TaskStatus.SUCCESS:
-                        continue
-                    all_upstream_success = False
-                    if u.status == TaskStatus.FAILED:
-                        task_crud.update_by_id(
-                            self.db,
-                            task.id,
-                            schemas.TaskUpdate(
-                                status=TaskStatus.FAILED,
-                                running_worker_id=None,
-                            ),
-                        )
-                        break
-                if all_upstream_success:
-                    if task.type == 'dag':
-                        fsm_task.succeed(
-                            started_at=min(u.started_at for u in task.upstream),
-                            stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                            running_worker_id=None,
-                        )
-                    elif task.type == 'shell':
-                        fsm_task.queue_run()
-                        queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
-                        print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
-                        await self.redis.lpush(
-                            queue, schemas.TaskMessage(
-                                id=str(task.id),
-                                input_data=task.input_data,
-                                daemon_id=str(self.id),
-                            ).json(),
-                        )
-                    else:
-                        raise NotImplementedError(f'unsupported type {task.type}')
+                fsm_task.check_upstream(upstream=task.upstream)
 
+                if fsm_task.state == TaskStatus.QUEUED_RUN:
+                    queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
+                    print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
+                    await self.redis.lpush(
+                        queue, schemas.TaskMessage(
+                            id=str(task.id),
+                            input_data=task.input_data,
+                            daemon_id=str(self.id),
+                        ).json(),
+                    )
             if self.max_n_success is not None:
                 n_success = task_crud.n_success(self.db)
                 print(f'{n_success=} / {self.max_n_success=}')
