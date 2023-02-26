@@ -82,6 +82,7 @@ class Daemon:
                 .all()
             )
             for task in pending:
+                fsm_task = self.fsm_tasks[task.id]
                 all_upstream_success = True
                 for u in task.upstream:
                     if u.status == TaskStatus.SUCCESS:
@@ -110,9 +111,7 @@ class Daemon:
                             ),
                         )
                     elif task.type == 'shell':
-                        fsm_task = self.fsm_tasks[task.id]
                         fsm_task.queue_run()
-
                         queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
                         print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
                         await self.redis.lpush(
@@ -165,9 +164,9 @@ class Daemon:
         dag = self.create_dag_func(file)
         self.validate_dag(dag)
         dag = self.prepare_dag(dag)
-        dag_head_task, task_ids = dag_crud.create(self.db, dag)
-        for task_id in task_ids:
-            self.fsm_tasks[task_id] = fsm.Task(self.db, task_id)
+        dag_head_task, tasks = dag_crud.create(self.db, dag)
+        for task in tasks:
+            self.fsm_tasks[task.id] = fsm.Task(self.db, task)
         print('dag for file', file, 'created')
         return dag_head_task
 

@@ -23,8 +23,8 @@ class DagCRUD:
         self,
         db: Session,
         dag: DagCreate,
-    ) -> tuple[models.Task, set[uuid.UUID]]:
-        task_ids = set()
+    ) -> tuple[models.Task, set[models.Task]]:
+        tasks = set()
         head_task = models.Task(
             id=uuid.uuid4(),
             type='dag',
@@ -32,7 +32,7 @@ class DagCRUD:
             daemon_id=dag.daemon_id,
             status=TaskStatus.PENDING,
         )
-        task_ids.add(head_task.id)
+        tasks.add(head_task)
         db.add(head_task)
 
         task_input_data_id_to_db_task = {}
@@ -48,14 +48,14 @@ class DagCRUD:
                 daemon_id=dag.daemon_id,
                 status=TaskStatus.PENDING,
             )
-            task_ids.add(db_task.id)
+            tasks.add(db_task)
             db.add(db_task)
             task_input_data_id_to_db_task[task_input_data_id] = db_task
 
         head_task.upstream = list(task_input_data_id_to_db_task.values())
         db.commit()
         db.refresh(head_task)
-        return head_task, task_ids
+        return head_task, tasks
 
 
 dag_crud = DagCRUD()
