@@ -3,15 +3,15 @@ import os
 import sys
 
 from dagops.daemon import Daemon
+from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
 from dagops.dependencies import get_redis_cm
-from dagops.state.schemas import InputDataDag
 from dagops.state.schemas import TaskInfo
 from dagops.worker import prepare_workers
 from dagops.worker import run_workers
 
 
-def create_dag(file: str) -> InputDataDag:
+def create_dag(file: str) -> Dag:
     command = [sys.executable, '-u', 'examples/commands/long_command.py']
     common_env = {'TASK_NAME': file}
     if N_ITERATIONS := os.environ.get('N_ITERATIONS'):
@@ -28,10 +28,10 @@ def create_dag(file: str) -> InputDataDag:
         d: [],
         e: [c, d],
     }
-    return graph
+    return Dag(graph)
 
 
-def create_batch_dag(files: list[str]) -> InputDataDag:
+def create_batch_dag(files: list[str]) -> Dag:
     command = [sys.executable, 'examples/commands/batch_task.py', '--file', *files]
     a = TaskInfo(command=command, env={'SUBTASK': 'a'}, worker_name='cpu')
     b = TaskInfo(command=command, env={'SUBTASK': 'b'}, worker_name='cpu')
@@ -39,7 +39,7 @@ def create_batch_dag(files: list[str]) -> InputDataDag:
         a: [],
         b: [a],
     }
-    return graph
+    return Dag(graph)
 
 
 async def main():

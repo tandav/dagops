@@ -76,35 +76,16 @@ class Daemon:
                 await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
             await asyncio.sleep(constant.SLEEP_TIME)
 
-    @staticmethod
-    def validate_dag(dag: dict[schemas.ShellTaskInputData, list[schemas.ShellTaskInputData]]):
-        for task, deps in dag.items():
-            for dep in deps:
-                if dep not in dag:
-                    raise ValueError(f'dependency {dep} of task {task} not in dag')
-
-    def prepare_dag(self, graph: schemas.InputDataDag) -> schemas.DagCreate:
-        input_data = [None] * len(graph)
-        task_to_id = {}
-        for i, task in enumerate(graph):
-            task_to_id[task] = i
-            input_data[i] = task
-        id_graph = {}
-        for task, deps in graph.items():
-            id_graph[task_to_id[task]] = [task_to_id[dep] for dep in deps]
-        dag = schemas.DagCreate(
-            type='shell',
-            tasks_input_data=input_data,
-            graph=id_graph,
-            daemon_id=self.id,
-        )
-        return dag
-
     async def create_dag(self, file: str) -> models.Task:
         dag = self.create_dag_func(file)
-        self.validate_dag(dag)
-        dag = self.prepare_dag(dag)
-        dag_head_task, tasks = dag_crud.create(self.db, dag)
+        dag_head_task, tasks = dag_crud.create(
+            self.db, schemas.DagCreate(
+                type='shell',
+                tasks_input_data=dag.input_data,
+                graph=dag.id_graph,
+                daemon_id=self.id,
+            ),
+        )
         for task in tasks:
             fsm_task = fsm.Task(task, self.db, self.redis)
             await fsm_task.wait_upstream()
