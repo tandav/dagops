@@ -56,11 +56,11 @@ class Daemon:
 
             fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
             if worker_task_status.status == WorkerTaskStatus.RUNNING:
-                fsm_task.run()
+                await fsm_task.run()
             if worker_task_status.status == WorkerTaskStatus.SUCCESS:
-                fsm_task.succeed(output_data=worker_task_status.output_data)
+                await fsm_task.succeed(output_data=worker_task_status.output_data)
             if worker_task_status.status == WorkerTaskStatus.FAILED:
-                fsm_task.fail(output_data=worker_task_status.output_data)
+                await fsm_task.fail(output_data=worker_task_status.output_data)
 
     async def handle_tasks(self):
         while True:
@@ -74,8 +74,7 @@ class Daemon:
                 .filter(models.Task.status == TaskStatus.WAIT_UPSTREAM)
                 .all()
             ):
-                fsm_task = self.fsm_tasks[task.id]
-                fsm_task.check_upstream(upstream=task.upstream)
+                await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
 
             if self.max_n_success is not None:
                 n_success = task_crud.n_success(self.db)
@@ -113,14 +112,14 @@ class Daemon:
         )
         return dag
 
-    def create_dag(self, file: str) -> models.Task:
+    async def create_dag(self, file: str) -> models.Task:
         dag = self.create_dag_func(file)
         self.validate_dag(dag)
         dag = self.prepare_dag(dag)
         dag_head_task, tasks = dag_crud.create(self.db, dag)
         for task in tasks:
             fsm_task = fsm.Task(task, self.db, self.redis)
-            fsm_task.wait_upstream()
+            await fsm_task.wait_upstream()
             self.fsm_tasks[task.id] = fsm_task
         print('dag for file', file, 'created')
         return dag_head_task
@@ -135,11 +134,11 @@ class Daemon:
             if not self.batch:
                 for file in files:
                     print(f'creating dag for file {file.directory}/{file.file}...')
-                    dag_head_task = self.create_dag(file.file)
+                    dag_head_task = await self.create_dag(file.file)
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
             elif files:
                 print(f'batch dag for {len(files)} files creating...')
-                dag_head_task = self.create_dag([file.file for file in files])
+                dag_head_task = await self.create_dag([file.file for file in files])
                 for file in files:
                     file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
 

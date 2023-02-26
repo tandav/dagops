@@ -1,9 +1,8 @@
 import datetime
-import os
 
 from redis import Redis
 from sqlalchemy.orm import Session
-from transitions import Machine
+from transitions.extensions.asyncio import AsyncMachine
 
 from dagops import constant
 from dagops.state import models
@@ -21,8 +20,8 @@ class Task:
         db.refresh(db_obj)
         self.db_obj = db_obj
         self.db = db
-        self.redis = Redis.from_url(os.environ['REDIS_URL'])  # todo use async redis from args and use AsyncMachine
-        self.machine = Machine(
+        self.redis = redis
+        self.machine = AsyncMachine(
             model=self,
             states=TaskStatus,
             initial=TaskStatus.PENDING,
@@ -77,10 +76,10 @@ class Task:
     def update_stopped_at(self, **kwargs):
         self.db_obj.stopped_at = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    def send_message_to_worker(self, **kwargs):
-        queue = f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}'
-        self.redis.lpush(
-            queue, schemas.TaskMessage(
+    async def send_message_to_worker(self, **kwargs):
+        await self.redis.lpush(
+            f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
+            schemas.TaskMessage(
                 id=str(self.db_obj.id),
                 input_data=self.db_obj.input_data,
                 daemon_id=str(self.db_obj.daemon_id),
