@@ -11,6 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy.orm import Session
 
 from dagops import constant
+from dagops import fsm
 from dagops.state import models
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
@@ -52,32 +53,21 @@ class Daemon:
             _, message = kv
             print(self.watch_directory, 'handle_tasks', message)
             worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
-            
+
             fsm_task = self.fsm_tasks[uuid.UUID(worker_task_status.id)]
             if worker_task_status.status == WorkerTaskStatus.RUNNING:
-                task = task_crud.read_by_id(self.db, uuid.UUID(worker_task_status.id))
-                task_crud.update_by_id(
-                    self.db,
-                    task.id,
-                    schemas.TaskUpdate(
-                        status=TaskStatus.RUNNING,
-                        started_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                    ),
+                fsm_task.run(
+                    started_at=datetime.datetime.now(tz=datetime.timezone.utc),
                 )
             elif worker_task_status.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
-                task_crud.update_by_id(
-                    self.db,
-                    uuid.UUID(worker_task_status.id),
-                    schemas.TaskUpdate(
-                        status={
-                            WorkerTaskStatus.SUCCESS: TaskStatus.SUCCESS,
-                            WorkerTaskStatus.FAILED: TaskStatus.FAILED,
-                        }[worker_task_status.status],
-                        stopped_at=datetime.datetime.now(tz=datetime.timezone.utc),
-                        output_data=worker_task_status.output_data,
-                        running_worker_id=None,
-                    ),
-                )
+                kwargs = {
+                    'stopped_at': datetime.datetime.now(tz=datetime.timezone.utc),
+                    'output_data': worker_task_status.output_data,
+                }
+                if worker_task_status.status == WorkerTaskStatus.SUCCESS:
+                    fsm_task.succeed(**kwargs)
+                if worker_task_status.status == WorkerTaskStatus.FAILED:
+                    fsm_task.fail(**kwargs)
 
     async def handle_tasks(self):  # noqa: C901
         while True:
@@ -120,11 +110,9 @@ class Daemon:
                             ),
                         )
                     elif task.type == 'shell':
-                        task_crud.update_by_id(
-                            self.db,
-                            task.id,
-                            schemas.TaskUpdate(status=TaskStatus.QUEUED_RUN),
-                        )
+                        fsm_task = self.fsm_tasks[task.id]
+                        fsm_task.queue_run()
+
                         queue = f'{constant.QUEUE_TASK}:{task.worker.name}'
                         print(self.watch_directory, 'handle_tasks', f'pushing task {task.id} to f{queue}')
                         await self.redis.lpush(
