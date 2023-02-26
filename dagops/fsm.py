@@ -44,6 +44,7 @@ class Task:
         self.machine.add_transition('fail', TaskStatus.RUNNING, TaskStatus.FAILED, after='update_db')
         self.machine.add_transition('cancel', '*', TaskStatus.CANCELED)
 
+        self.machine.on_enter_RUNNING('add_running_worker')
         for method in ('delete_running_worker', 'update_stopped_at'):
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
@@ -69,6 +70,9 @@ class Task:
 
     def delete_running_worker(self, **kwargs):
         self.db_obj.running_worker_id = None
+
+    def add_running_worker(self, **kwargs):
+        self.db_obj.running_worker_id = self.db_obj.worker_id
 
     def update_started_at(self, **kwargs):
         self.db_obj.started_at = datetime.datetime.now(tz=datetime.timezone.utc)
