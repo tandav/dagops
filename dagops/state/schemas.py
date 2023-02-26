@@ -120,7 +120,6 @@ class TaskUpdate(BaseModel):
     output_data: dict | None = None
     worker_id: UUID | None = None
     running_worker_id: UUID | None = None
-    upstream: list[UUID] | None = None
 
 
 class TaskRunResult(BaseModel):
