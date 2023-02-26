@@ -17,8 +17,8 @@ from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
-from dagops.status import TaskStatus
-from dagops.status import WorkerTaskStatus
+from dagops.state.status import TaskStatus
+from dagops.state.status import WorkerTaskStatus
 
 
 class Daemon:

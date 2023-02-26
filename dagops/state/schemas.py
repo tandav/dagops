@@ -7,8 +7,8 @@ from pydantic import Field
 from pydantic import root_validator
 
 from dagops import constant
-from dagops.status import TaskStatus
-from dagops.status import WorkerTaskStatus
+from dagops.state.status import TaskStatus
+from dagops.state.status import WorkerTaskStatus
 
 # =============================================================================
 

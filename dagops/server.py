@@ -23,7 +23,7 @@ from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 from dagops.state.crud.worker import worker_crud
-from dagops.status import TaskStatus
+from dagops.state.status import TaskStatus
 
 static_folder = Path(__file__).parent / 'static'
 app = FastAPI()

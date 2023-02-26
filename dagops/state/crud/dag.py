@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from dagops.state import models
 from dagops.state.schemas import DagCreate
-from dagops.status import TaskStatus
+from dagops.state.status import TaskStatus
 
 
 @functools.cache

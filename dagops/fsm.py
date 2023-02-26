@@ -7,7 +7,7 @@ from transitions.extensions.asyncio import AsyncMachine
 from dagops import constant
 from dagops.state import models
 from dagops.state import schemas
-from dagops.status import TaskStatus
+from dagops.state.status import TaskStatus
 
 
 class Task:

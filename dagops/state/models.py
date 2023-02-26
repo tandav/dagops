@@ -13,7 +13,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from dagops.status import TaskStatus
+from dagops.state.status import TaskStatus
 
 
 class Base(DeclarativeBase):
