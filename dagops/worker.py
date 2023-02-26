@@ -39,8 +39,11 @@ class Worker:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
+        log_key = f'{constant.LIST_LOGS}:{log_id}'
+        await self.redis.rpush(log_key, '')  # create empty line to set ttl before logs are written
+        await self.redis.expire(log_key, constant.LOGS_TTL)
         async for line in p.stdout:
-            await self.redis.rpush(f'{constant.LIST_LOGS}:{log_id}', line)
+            await self.redis.rpush(log_key, line)
         await p.communicate()
         return p
 
