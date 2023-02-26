@@ -42,7 +42,7 @@ class Daemon:
         self.redis = redis
         self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
         self.fsm_tasks = {}
-        if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):
+        if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):  # this is used for testing only
             self.max_n_success = int(MAX_N_SUCCESS)
         else:
             self.max_n_success = None
@@ -74,17 +74,6 @@ class Daemon:
                 .all()
             ):
                 await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
-
-            if self.max_n_success is not None:
-                n_success = task_crud.n_success(self.db)
-                print(f'{n_success=} / {self.max_n_success=}')
-                if n_success == self.max_n_success:
-                    print('MAX_N_SUCCESS reached, exiting')
-                    for task in asyncio.all_tasks():
-                        task.cancel()
-                    raise SystemExit
-                elif n_success > self.max_n_success:
-                    raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
             await asyncio.sleep(constant.SLEEP_TIME)
 
     @staticmethod
@@ -198,11 +187,29 @@ class Daemon:
         self.db.commit()
         print(f'canceling {len(orphans)} orphans tasks... done')
 
+    async def check_max_n_success(self):
+        while True:
+            n_success = task_crud.n_success(self.db)
+            print(f'{n_success=} / {self.max_n_success=}')
+            if n_success == self.max_n_success:
+                print('MAX_N_SUCCESS reached, exiting')
+                for task in asyncio.all_tasks():
+                    task.cancel()
+                raise SystemExit
+            elif n_success > self.max_n_success:
+                raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
+            await asyncio.sleep(constant.SLEEP_TIME)
+
     async def __call__(self):
         await self.cancel_orphans()
-        await asyncio.gather(
+
+        aws = [
             self.do_watch_directory(),
             self.update_files_dags(),
             self.handle_worker_messages(),
             self.handle_tasks(),
-        )
+        ]
+        if self.max_n_success is not None:
+            aws.append(self.check_max_n_success())
+
+        await asyncio.gather(*aws)
