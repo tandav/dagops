@@ -73,15 +73,15 @@ class Daemon:
         while True:
             await self.handle_worker_messages()
 
-            pending = (
+            waiting_upstream = (
                 self
                 .db
                 .query(models.Task)
                 .filter(models.Task.daemon_id == self.id)
-                .filter(models.Task.status == TaskStatus.PENDING)
+                .filter(models.Task.status == TaskStatus.WAIT_UPSTREAM)
                 .all()
             )
-            for task in pending:
+            for task in waiting_upstream:
                 fsm_task = self.fsm_tasks[task.id]
                 all_upstream_success = True
                 for u in task.upstream:
@@ -161,7 +161,9 @@ class Daemon:
         dag = self.prepare_dag(dag)
         dag_head_task, tasks = dag_crud.create(self.db, dag)
         for task in tasks:
-            self.fsm_tasks[task.id] = fsm.Task(self.db, task)
+            fsm_task = fsm.Task(self.db, task)
+            fsm_task.wait_upstream()
+            self.fsm_tasks[task.id] = fsm_task
         print('dag for file', file, 'created')
         return dag_head_task
 

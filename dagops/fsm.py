@@ -10,7 +10,6 @@ from dagops.status import TaskStatus
 class Task:
     def __init__(self, db: Session, db_task: models.Task):
         self.db = db
-        # self.task_id = task_id
         db.refresh(db_task)
         self.db_task = db_task
         self.machine = Machine(
@@ -20,16 +19,13 @@ class Task:
         )
 
         # MVP: no cache check
-        # MVP: no wait upstream (as in current dagops code)
-
         # self.machine.add_transition('wait_cache_path_release', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE)
-        # self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM)
-        # self.machine.add_transition('queue_run', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN)
 
-        self.machine.add_transition('queue_run', TaskStatus.PENDING, TaskStatus.QUEUED_RUN, after='update_db')
+        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after='update_db')
+        self.machine.add_transition('queue_run', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, after='update_db')
         self.machine.add_transition('run', TaskStatus.QUEUED_RUN, TaskStatus.RUNNING, after='update_db')
         self.machine.add_transition('succeed', TaskStatus.RUNNING, TaskStatus.SUCCESS, after='update_db')
-        self.machine.add_transition('succeed', TaskStatus.PENDING, TaskStatus.SUCCESS, after='update_db', conditions=['is_dag'])  # todo: source should be WAIT_UPSTREAM
+        self.machine.add_transition('succeed', TaskStatus.WAIT_UPSTREAM, TaskStatus.SUCCESS, after='update_db', conditions=['is_dag'])
         self.machine.add_transition('fail', TaskStatus.RUNNING, TaskStatus.FAILED, after='update_db')
         self.machine.add_transition('cancel', '*', TaskStatus.CANCELED)
 
