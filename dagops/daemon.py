@@ -114,7 +114,7 @@ class Daemon:
 
     async def do_watch_directory(
         self,
-        exclude: frozenset[str] = frozenset({'.DS_Store'}),
+        exclude: frozenset[str] = constant.default_files_exclude,
     ) -> None:
         while True:
             if self.storage == 'filesystem':

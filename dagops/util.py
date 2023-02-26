@@ -6,6 +6,8 @@ import aiofiles.os
 import humanize
 from redis import Redis
 
+from dagops import constant
+
 
 def dirset(
     path: str | Path,
@@ -68,7 +70,7 @@ def format_time(
 
 def n_files(
     directory: str,
-    exclude: frozenset[str] = frozenset({'.DS_Store'}),
+    exclude: frozenset[str] = constant.default_files_exclude,
 ) -> int:
     return sum(1 for p in Path(directory).iterdir() if p.name not in exclude)
 

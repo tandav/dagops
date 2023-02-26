@@ -10,3 +10,5 @@ LOCKS = f'{PREFIX}:locks'
 
 workers = {'cpu': 32, 'gpu': 1}
 NOT_EXISTS_RETURNCODE = 87
+
+default_files_exclude = frozenset({'.DS_Store'})
