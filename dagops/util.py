@@ -1,5 +1,6 @@
 import datetime
 import operator
+from functools import partial
 from pathlib import Path
 
 import aiofiles.os
@@ -54,18 +55,31 @@ async def dirstat(
     return out
 
 
+def to_local_time(dt: datetime.datetime, timezone: datetime.timezone):
+    if dt.tzinfo is not None:
+        raise ValueError('pass timezone as separate argument')
+    dt = dt.replace(tzinfo=timezone)
+    return datetime.datetime.fromtimestamp(dt.timestamp())
+
+
 def format_time(
     t: datetime.datetime,
     absolute: bool = False,
     pad: bool = False,
+    timezone: datetime.timezone | None = None,
 ) -> str:
-    if absolute or (datetime.datetime.now(tz=datetime.timezone.utc) - t).days > 30:
+    if timezone is not None:
+        t = to_local_time(t, timezone)
+    if absolute or (datetime.datetime.utcnow() - t).days > 30:
         return t.strftime('%Y %b %d %H:%M')
     t = datetime.datetime.fromtimestamp(t.timestamp())
     out = humanize.naturaltime(t)
     if pad:
         out = out.rjust(17)
     return out
+
+
+format_time_utc = partial(format_time, timezone=datetime.timezone.utc)
 
 
 def n_files(

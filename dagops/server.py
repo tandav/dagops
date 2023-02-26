@@ -32,6 +32,7 @@ app = FastAPI()
 app.mount('/static/', StaticFiles(directory=static_folder), name='static')
 templates = Jinja2Templates(directory=static_folder / 'templates')
 templates.env.filters['format_time'] = util.format_time
+templates.env.filters['format_time_utc'] = util.format_time_utc
 
 
 # =============================================================================

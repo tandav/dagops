@@ -161,7 +161,7 @@ class Daemon:
             return
         print(f'canceling {len(orphans)} orphans tasks...')
         for task in orphans:
-            now = datetime.datetime.now(tz=datetime.timezone.utc)
+            now = datetime.datetime.utcnow()
             task.status = TaskStatus.CANCELED
             if task.started_at is not None:
                 task.stopped_at = now

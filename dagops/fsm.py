@@ -75,10 +75,10 @@ class Task:
         self.db_obj.running_worker_id = self.db_obj.worker_id
 
     def update_started_at(self, **kwargs):
-        self.db_obj.started_at = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.db_obj.started_at = datetime.datetime.utcnow()
 
     def update_stopped_at(self, **kwargs):
-        self.db_obj.stopped_at = datetime.datetime.now(tz=datetime.timezone.utc)
+        self.db_obj.stopped_at = datetime.datetime.utcnow()
 
     async def send_message_to_worker(self, **kwargs):
         await self.redis.lpush(

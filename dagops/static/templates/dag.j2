@@ -30,19 +30,19 @@
     </tr>
     <tr>
         <td>created_at</td>
-        <td><code>{{ dag.created_at|format_time if dag.created_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ dag.created_at|format_time_utc if dag.created_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>updated_at</td>
-        <td><code>{{ dag.updated_at|format_time if dag.updated_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ dag.updated_at|format_time_utc if dag.updated_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>started_at</td>
-        <td><code>{{ dag.started_at|format_time if dag.started_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ dag.started_at|format_time_utc if dag.started_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>stopped_at</td>
-        <td><code>{{ dag.stopped_at|format_time if dag.stopped_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ dag.stopped_at|format_time_utc if dag.stopped_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>duration</td>

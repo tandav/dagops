@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 from sqlalchemy import Column
@@ -11,7 +12,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 
 from dagops.state.status import TaskStatus
 
@@ -51,10 +51,10 @@ class Task(Base):
     worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     running_worker_id = Column(UUID, ForeignKey('worker.id'), nullable=True)
     daemon_id = Column(UUID, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    stopped_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    stopped_at = Column(DateTime, nullable=True)
     status = Column(Enum(TaskStatus), nullable=False)
     input_data = Column(JSONB, nullable=True)
     output_data = Column(JSONB, nullable=True)

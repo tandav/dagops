@@ -26,7 +26,7 @@ class WithDuration(BaseModel):
             if stopped_at is not None:
                 values['duration_seconds'] = (stopped_at - started_at).total_seconds()
             else:
-                values['duration_seconds'] = (datetime.datetime.now(tz=datetime.timezone.utc) - started_at).total_seconds()
+                values['duration_seconds'] = (datetime.datetime.utcnow() - started_at).total_seconds()
         return values
 
 # =============================================================================
