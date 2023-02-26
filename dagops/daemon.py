@@ -33,13 +33,13 @@ class Daemon:
     ):
         if storage not in {'filesystem', 'redis'}:
             raise ValueError(f'unsupported storage={storage} It must be filesystem or redis')
-        self.storage = storage
         self.id = uuid.uuid4()
         self.watch_directory = Path(watch_directory)
         self.db = db
+        self.redis = redis
         self.create_dag_func = create_dag_func
         self.batch = batch
-        self.redis = redis
+        self.storage = storage
         self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
         self.fsm_tasks = {}
         if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):  # this is used for testing only
