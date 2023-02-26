@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from dagops import constant
 from dagops import fsm
+from dagops.dag import Dag
 from dagops.state import models
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
@@ -27,7 +28,7 @@ class Daemon:
         watch_directory: str,
         db: Session,
         redis: Redis,
-        create_dag_func: Callable[[str | list[str]], schemas.InputDataDag],
+        create_dag_func: Callable[[str | list[str]], Dag],
         batch: bool = False,
         storage: Literal['filesystem', 'redis'] = 'filesystem',
     ):
