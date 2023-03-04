@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from dagops import constant
 from dagops.dependencies import get_db_cm
+from dagops.fsm import WorkerTask
 from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
 from dagops.state.status import WorkerTaskStatus
@@ -23,6 +24,7 @@ class Worker:
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
         self.task_id_to_daemon_id = {}
+        self.fsm_tasks = {}
 
     def __repr__(self):
         return f'Worker({self.name}, {self.maxtasks})'
@@ -81,18 +83,9 @@ class Worker:
             print('run_tasks_from_queue', len(self.aiotask_to_task_id))
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
-            print('run_tasks_from_queue', task)
-            self.task_id_to_daemon_id[task.id] = task.daemon_id
-            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-            pipeline = self.redis.pipeline()
-            pipeline.lpush(self.aio_tasks_channel, task.id)
-            pipeline.lpush(
-                f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.WorkerTaskStatusMessage(
-                    id=task.id,
-                    status=WorkerTaskStatus.RUNNING,
-                ).json(),
-            )
-            await pipeline.execute()
+
+            self.fsm_tasks[task.id] = WorkerTask(task, self, self.redis)
+            await self.fsm_tasks[task.id].run()
 
     async def handle_aio_tasks(self):
         while True:

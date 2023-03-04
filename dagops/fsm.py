@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 
 from redis import Redis
@@ -8,6 +9,7 @@ from dagops import constant
 from dagops.state import models
 from dagops.state import schemas
 from dagops.state.status import TaskStatus
+from dagops.state.status import WorkerTaskStatus
 
 
 class Task:
@@ -89,3 +91,38 @@ class Task:
                 daemon_id=str(self.db_obj.daemon_id),
             ).json(),
         )
+
+
+class WorkerTask:
+    def __init__(
+        self,
+        task: schemas.TaskMessage,
+        worker,
+        redis: Redis,
+    ) -> None:
+        self.task = task
+        self.worker = worker
+        self.redis = redis
+        self.machine = AsyncMachine(
+            model=self,
+            states=WorkerTaskStatus,
+            initial=WorkerTaskStatus.QUEUED,
+        )
+
+        self.machine.add_transition('run', WorkerTaskStatus.QUEUED, WorkerTaskStatus.RUNNING)
+
+    async def run(self):
+        task = self.task
+        worker = self.worker
+        print('run_tasks_from_queue', task)
+        worker.task_id_to_daemon_id[task.id] = task.daemon_id
+        worker.aiotask_to_task_id[asyncio.create_task(worker.run_task(task))] = task.id
+        pipeline = self.redis.pipeline()
+        pipeline.lpush(worker.aio_tasks_channel, task.id)
+        pipeline.lpush(
+            f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.WorkerTaskStatusMessage(
+                id=task.id,
+                status=WorkerTaskStatus.RUNNING,
+            ).json(),
+        )
+        await pipeline.execute()
