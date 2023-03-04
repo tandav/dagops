@@ -109,13 +109,14 @@ class WorkerTask:
             initial=WorkerTaskStatus.QUEUED,
         )
 
-        self.machine.add_transition('run', WorkerTaskStatus.QUEUED, WorkerTaskStatus.RUNNING)
+        self.machine.add_transition('run', WorkerTaskStatus.QUEUED, WorkerTaskStatus.RUNNING, after=['send_message_to_daemon'])
+        self.machine.add_transition('succeed', WorkerTaskStatus.RUNNING, WorkerTaskStatus.SUCCESS, after='complete_task')
+        self.machine.add_transition('fail', WorkerTaskStatus.RUNNING, WorkerTaskStatus.FAILED, after='complete_task')
 
-    async def run(self):
+    async def send_message_to_daemon(self):
         task = self.task
         worker = self.worker
         print('run_tasks_from_queue', task)
-        worker.task_id_to_daemon_id[task.id] = task.daemon_id
         worker.aiotask_to_task_id[asyncio.create_task(worker.run_task(task))] = task.id
         pipeline = self.redis.pipeline()
         pipeline.lpush(worker.aio_tasks_channel, task.id)
@@ -126,3 +127,14 @@ class WorkerTask:
             ).json(),
         )
         await pipeline.execute()
+
+    async def complete_task(self, returncode: int):
+        task_id = self.task.id
+        status_message = schemas.WorkerTaskStatusMessage(
+            id=task_id,
+            status=self.state,
+            output_data={'returncode': returncode},
+        )
+        daemon_id = self.task.daemon_id
+        await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())
+        print('EXITING TASK', status_message)

@@ -8,7 +8,6 @@ from dagops.dependencies import get_db_cm
 from dagops.fsm import WorkerTask
 from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
-from dagops.state.status import WorkerTaskStatus
 
 
 class Worker:
@@ -23,7 +22,6 @@ class Worker:
         self.aiotask_to_task_id = {}
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
-        self.task_id_to_daemon_id = {}
         self.fsm_tasks = {}
 
     def __repr__(self):
@@ -84,8 +82,10 @@ class Worker:
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
 
-            self.fsm_tasks[task.id] = WorkerTask(task, self, self.redis)
-            await self.fsm_tasks[task.id].run()
+            fsm_task = WorkerTask(task, self, self.redis)
+            self.fsm_tasks[task.id] = fsm_task
+            await fsm_task.run()
+            print(fsm_task.state)
 
     async def handle_aio_tasks(self):
         while True:
@@ -97,25 +97,16 @@ class Worker:
             done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             for aiotask in done:
                 task_run_result = aiotask.result()
+                task_id = self.aiotask_to_task_id[aiotask]
+                fsm_task = self.fsm_tasks[task_id]
 
                 if task_run_result.exists_returncode == 0 or task_run_result.returncode == 0:
-                    status = WorkerTaskStatus.SUCCESS
-                    returncode = 0
+                    await fsm_task.succeed(returncode=0)
                 else:
-                    status = WorkerTaskStatus.FAILED
-                    returncode = task_run_result.returncode or task_run_result.exists_returncode
+                    await fsm_task.fail(returncode=task_run_result.returncode or task_run_result.exists_returncode)
 
-                task_id = self.aiotask_to_task_id[aiotask]
-                status_message = schemas.WorkerTaskStatusMessage(
-                    id=task_id,
-                    status=status,
-                    output_data={'returncode': returncode},
-                )
-                daemon_id = self.task_id_to_daemon_id[task_id]
-                await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())
+                del self.fsm_tasks[task_id]
                 del self.aiotask_to_task_id[aiotask]
-                del self.task_id_to_daemon_id[task_id]
-                print('EXITING TASK', status_message)
 
     async def __call__(self):
         await self.redis.delete(self.aio_tasks_channel)
