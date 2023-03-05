@@ -102,8 +102,13 @@ disallow_untyped_defs = false
 
 [tool.ruff]
 select = [
-  "E",   # pycodestyle
-  "F",   # pyflakes
-  "UP",  # pyupgrade
+    "E", "W", # pycodestyle
+    "F",      # pyflakes
+    "C",
+#   "B",
+#   "N",
+    "PTH",
 ]
-line-length = 200
+ignore = [
+    "E501",  # line too long
+]

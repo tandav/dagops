@@ -1,7 +1,0 @@
-[flake8]
-ignore = E741
-max-line-length = 200
-max-complexity = 10
-recursive = true
-aggressive = 3
-jobs = 8
