@@ -74,10 +74,19 @@ class Daemon:
                 .db
                 .query(models.Task)
                 .filter(models.Task.daemon_id == self.id)
-                .filter(models.Task.status == TaskStatus.WAIT_UPSTREAM)
+                .filter(
+                    models.Task.status.in_([
+                        TaskStatus.PENDING,
+                        TaskStatus.WAIT_UPSTREAM,
+                    ]),
+                )
                 .all()
             ):
-                await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
+                fsm_task = self.fsm_tasks[task.id]
+                if task.status == TaskStatus.PENDING:
+                    await fsm_task.wait_upstream()
+                elif task.status == TaskStatus.WAIT_UPSTREAM:
+                    await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def create_dag(self, file: str) -> models.Task:
@@ -91,9 +100,7 @@ class Daemon:
             ),
         )
         for task in tasks:  # tasks include dag_head_task and all it's deps
-            fsm_task = fsm.Task(task, self.db, self.redis)
-            await fsm_task.wait_upstream()
-            self.fsm_tasks[task.id] = fsm_task
+            self.fsm_tasks[task.id] = fsm.Task(task, self.db, self.redis)
         print('dag for file', file, 'created')
         return dag_head_task
 
