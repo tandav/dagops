@@ -98,14 +98,19 @@ class Worker:
                 continue
             done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             for aiotask in done:
-                task_run_result = aiotask.result()
+                result = aiotask.result()
                 task_id = self.aiotask_to_task_id[aiotask]
                 fsm_task = self.fsm_tasks[task_id]
 
-                if task_run_result.exists_returncode == 0 or task_run_result.returncode == 0:
+                if result.returncode == 0:
                     await fsm_task.succeed(returncode=0)
                 else:
-                    await fsm_task.fail(returncode=task_run_result.returncode or task_run_result.exists_returncode)
+                    await fsm_task.fail(returncode=result.returncode)
+
+                # if result.exists_returncode == 0 or result.returncode == 0:
+                #     await fsm_task.succeed(returncode=0)
+                # else:
+                #     await fsm_task.fail(returncode=result.returncode or result.exists_returncode)
 
                 del self.fsm_tasks[task_id]
                 del self.aiotask_to_task_id[aiotask]
