@@ -1,7 +1,7 @@
 import asyncio
 import sys
 
-from dagops.constant import NOT_EXISTS_RETURNCODE
+from dagops.constant import CACHE_NOT_EXISTS_RETURNCODE
 from dagops.dependencies import get_redis_cm
 
 
@@ -12,7 +12,7 @@ async def main():
             raise SystemExit(0)
         else:
             print(f'redis key not exists: {sys.argv[1]!r}')
-            raise SystemExit(NOT_EXISTS_RETURNCODE)
+            raise SystemExit(CACHE_NOT_EXISTS_RETURNCODE)
 
 if __name__ == '__main__':
     asyncio.run(main())

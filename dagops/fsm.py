@@ -39,9 +39,13 @@ class Task:
 
         self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
 
-        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_path_exists'], after=['update_db'])
-        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, conditions=['is_cache_check_failed'], after=['update_db'])
-        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_path_exists'], after=['update_db'])
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, conditions=['is_cache_check_failed'], after=['update_db'])
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
+
+        self.machine.add_transition('cache_exists', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, after=['update_db'])
+        self.machine.add_transition('cache_check_failed', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, after=['update_db'])
+        self.machine.add_transition('cache_not_exists', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
 
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.SUCCESS, conditions=['all_upstream_success', 'is_dag'], after='update_db')
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, conditions=['all_upstream_success'], after=['update_db', 'send_message_to_worker'])
@@ -116,15 +120,18 @@ class Task:
     async def send_message_to_worker2(self, **kwargs):
         """
         send check cache message to worker
+        should it be added to db?
         """
-        input_data = self.db_obj.input_data
-        input_data['command'] = input_data.pop('exists_command')
-
+        input_data = {
+            'command': self.db_obj.input_data['exists_command'],
+            'env': self.db_obj.input_data['exists_env'],
+            'is_cache': True,
+        }
         await self.redis.lpush(
             f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
             schemas.TaskMessage(
                 id=str(self.db_obj.id),
-                input_data=self.db_obj.input_data,
+                input_data=input_data,
                 daemon_id=str(self.db_obj.daemon_id),
             ).json(),
         )

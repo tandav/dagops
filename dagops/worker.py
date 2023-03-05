@@ -61,7 +61,7 @@ class Worker:
         #     )
         #     if exists_p.returncode == 0:
         #         return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
-        #     elif exists_p.returncode == constant.NOT_EXISTS_RETURNCODE:
+        #     elif exists_p.returncode == constant.CACHE_NOT_EXISTS_RETURNCODE:
         #         exists_returncode = exists_p.returncode
         #     else:
         #         return schemas.TaskRunResult(exists_returncode=exists_p.returncode)

@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from dagops.constant import NOT_EXISTS_RETURNCODE
+from dagops.constant import CACHE_NOT_EXISTS_RETURNCODE
 
 
 def main():
@@ -10,7 +10,7 @@ def main():
         raise SystemExit(0)
     else:
         print(f'filesystem path not exists: {sys.argv[1]!r}')
-        raise SystemExit(NOT_EXISTS_RETURNCODE)
+        raise SystemExit(CACHE_NOT_EXISTS_RETURNCODE)
 
 
 if __name__ == '__main__':

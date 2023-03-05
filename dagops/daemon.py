@@ -58,13 +58,33 @@ class Daemon:
                 task_id = uuid.UUID(message.id)
                 fsm_task = self.fsm_tasks[task_id]
                 if message.status == WorkerTaskStatus.RUNNING:
-                    await fsm_task.run()
-                if message.status == WorkerTaskStatus.SUCCESS:
-                    await fsm_task.succeed(output_data=message.output_data)
+                    if message.input_data.is_cache is True:
+                        await fsm_task.run_cache_check()
+                    else:
+                        await fsm_task.run()
+
+                if message.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
+                    if message.status == WorkerTaskStatus.SUCCESS:
+                        if message.input_data.is_cache is True:
+                            await fsm_task.cache_exists(output_data=message.output_data)
+                        else:
+                            await fsm_task.succeed(output_data=message.output_data)
+                    if message.status == WorkerTaskStatus.FAILED:
+                        if message.input_data.is_cache is True:
+                            if message.output_data['returncode'] == constant.CACHE_NOT_EXISTS_RETURNCODE:
+                                await fsm_task.cache_not_exists(output_data=message.output_data)
+                            else:
+                                await fsm_task.cache_check_failed(output_data=message.output_data)
+                        else:
+                            await fsm_task.fail(output_data=message.output_data)
                     del self.fsm_tasks[task_id]
-                if message.status == WorkerTaskStatus.FAILED:
-                    await fsm_task.fail(output_data=message.output_data)
-                    del self.fsm_tasks[task_id]
+
+                # if message.status == WorkerTaskStatus.SUCCESS:
+                #     await fsm_task.succeed(output_data=message.output_data)
+                #     del self.fsm_tasks[task_id]
+                # if message.status == WorkerTaskStatus.FAILED:
+                #     await fsm_task.fail(output_data=message.output_data)
+                #     del self.fsm_tasks[task_id]
 
     async def handle_tasks(self):
         while True:
@@ -88,8 +108,6 @@ class Daemon:
                 fsm_task = self.fsm_tasks[task.id]
                 if task.status == TaskStatus.PENDING:
                     await fsm_task.try_queue_cache_check()
-                elif task.status == TaskStatus.QUEUED_CACHE_CHECK:
-                    await fsm_task.run_cache_check() # todo run using message from worker
                 elif task.status == TaskStatus.CACHE_CHECK_RUNNING:
                     await fsm_task.check_cache()
                 elif task.status == TaskStatus.WAIT_UPSTREAM:

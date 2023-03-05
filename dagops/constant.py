@@ -9,7 +9,7 @@ LIST_ERROR = f'{PREFIX}:errors'
 LOCKS = f'{PREFIX}:locks'
 
 workers = {'cpu': 32, 'gpu': 1}
-NOT_EXISTS_RETURNCODE = 87
+CACHE_CACHE_NOT_EXISTS_RETURNCODE = 87
 
 default_files_exclude = frozenset({'.DS_Store'})
 LOGS_TTL = 60 * 60 * 24 * 7  # 7 days

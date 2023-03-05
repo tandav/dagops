@@ -40,6 +40,14 @@ class ShellTaskInputData(BaseModel):
     env: dict[str, str] | None = None
     exists_command: list[str] | None = None
     exists_env: dict[str, str] | None = None
+    is_cache: bool = False
+
+    @root_validator
+    def validate_cache(cls, values):
+        if values['is_cache']:
+            if values['exists_command'] is None:
+                raise ValueError('exists_command must be set when is_cache=True')
+        return values
 
     def __hash__(self):
         command = tuple(self.command)
@@ -132,7 +140,7 @@ class TaskRunResult(BaseModel):
     #         raise ValueError('at least one of returncodes should be set')
     #     if values['exists_returncode'] is None:
     #         return values
-    #     if values['exists_returncode'] != constant.NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
+    #     if values['exists_returncode'] != constant.CACHE_NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
     #         raise ValueError(f'task should be run only if exists check not passed {values}')
     #     return values
 
