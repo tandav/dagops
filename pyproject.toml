@@ -68,9 +68,6 @@ tag = true
     "^__version__ = '{pep440_version}'",
 ]
 
-[tool.isort]
-force_single_line = true
-
 [tool.mypy]
 # todo: review this
 pretty = true
@@ -105,10 +102,12 @@ select = [
     "E", "W", # pycodestyle
     "F",      # pyflakes
     "C",
-#   "B",
-#   "N",
-    "PTH",
+    "I",      # isort
+    "PTH",    # pathlib
 ]
 ignore = [
     "E501",  # line too long
 ]
+
+[tool.ruff.isort]
+force-single-line = true
