@@ -90,7 +90,7 @@ class Daemon:
                 daemon_id=self.id,
             ),
         )
-        for task in tasks:
+        for task in tasks:  # tasks include dag_head_task and all it's deps
             fsm_task = fsm.Task(task, self.db, self.redis)
             await fsm_task.wait_upstream()
             self.fsm_tasks[task.id] = fsm_task

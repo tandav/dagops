@@ -48,7 +48,10 @@ class Worker:
         return p
 
     async def run_task(self, task: schemas.TaskMessage) -> schemas.TaskRunResult:
-        """MVP: without sending status updates to daemon"""
+        """MVP: without sending status updates to daemon
+        TODO: Cache check should be on daemon side. #49
+        delete this method, use only run_subprocess
+        """
         exists_returncode = None
         if task.input_data.exists_command is not None:
             exists_p = await self.run_subprocess(
@@ -81,7 +84,6 @@ class Worker:
             print('run_tasks_from_queue', len(self.aiotask_to_task_id))
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
-
             fsm_task = WorkerTask(task, self, self.redis)
             self.fsm_tasks[task.id] = fsm_task
             await fsm_task.run()
