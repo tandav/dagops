@@ -3,27 +3,27 @@ import os
 import sys
 
 from dagops.daemon import Daemon
+from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
 from dagops.dependencies import get_redis_cm
 from dagops.exists import exists
-from dagops.state.schemas import InputDataDag
 from dagops.state.schemas import TaskInfo
 from dagops.worker import prepare_workers
 from dagops.worker import run_workers
 
 
-def create_dag(path: str) -> InputDataDag:
+def create_dag(path: str) -> Dag:
     counter_key = os.environ['COUNTER_KEY']
     counter_cmd = [sys.executable, '-u', 'examples/commands/counter.py', counter_key]
     counter_task = TaskInfo(
         command=counter_cmd,
-        exists_command=exists.check(f'redis://{counter_key}'),
+        exists_command=exists.command(f'redis://{counter_key}'),
         worker_name='cpu',
     )
     graph = {
         counter_task: [],
     }
-    return graph
+    return Dag(graph)
 
 
 async def main():

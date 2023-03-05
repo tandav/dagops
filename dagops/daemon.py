@@ -55,29 +55,57 @@ class Daemon:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
                 message = schemas.WorkerTaskStatusMessage.parse_raw(message)
-                task_id = uuid.UUID(message.id)
-                fsm_task = self.fsm_tasks[task_id]
-                if message.status == WorkerTaskStatus.RUNNING:
-                    if message.input_data.is_cache is True:
+                if message.input_data.is_cache_check:
+                    task_id = uuid.UUID(message.input_data.original_task_id)
+                    fsm_task = self.fsm_tasks[task_id]
+                    if message.status == WorkerTaskStatus.RUNNING:
                         await fsm_task.run_cache_check()
-                    else:
+                    elif message.status == WorkerTaskStatus.SUCCESS:
+                        await fsm_task.cache_exists(output_data=message.output_data)
+                    elif message.status == WorkerTaskStatus.FAILED:
+                        if message.output_data['returncode'] == constant.CACHE_NOT_EXISTS_RETURNCODE:
+                            await fsm_task.cache_not_exists(output_data=message.output_data)
+                        else:
+                            await fsm_task.cache_check_failed(output_data=message.output_data)
+                else:
+                    task_id = uuid.UUID(message.id)
+                    fsm_task = self.fsm_tasks[task_id]
+                    if message.status == WorkerTaskStatus.RUNNING:
                         await fsm_task.run()
 
-                if message.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
-                    if message.status == WorkerTaskStatus.SUCCESS:
-                        if message.input_data.is_cache is True:
-                            await fsm_task.cache_exists(output_data=message.output_data)
-                        else:
-                            await fsm_task.succeed(output_data=message.output_data)
-                    if message.status == WorkerTaskStatus.FAILED:
-                        if message.input_data.is_cache is True:
-                            if message.output_data['returncode'] == constant.CACHE_NOT_EXISTS_RETURNCODE:
-                                await fsm_task.cache_not_exists(output_data=message.output_data)
-                            else:
-                                await fsm_task.cache_check_failed(output_data=message.output_data)
-                        else:
-                            await fsm_task.fail(output_data=message.output_data)
-                    del self.fsm_tasks[task_id]
+                    elif message.status == WorkerTaskStatus.SUCCESS:
+                        await fsm_task.succeed(output_data=message.output_data)
+                        del self.fsm_tasks[task_id]
+                    elif message.status == WorkerTaskStatus.FAILED:
+                        await fsm_task.fail(output_data=message.output_data)
+                        del self.fsm_tasks[task_id]
+
+
+
+
+                # task_id = uuid.UUID(message.id)
+                # fsm_task = self.fsm_tasks[task_id]
+                # if message.status == WorkerTaskStatus.RUNNING:
+                #     if message.input_data.is_cache_check:
+                #         await fsm_task.run_cache_check()
+                #     else:
+                #         await fsm_task.run()
+
+                # if message.status in {WorkerTaskStatus.SUCCESS, WorkerTaskStatus.FAILED}:
+                #     if message.status == WorkerTaskStatus.SUCCESS:
+                #         if message.input_data.is_cache_check:
+                #             await fsm_task.cache_exists(output_data=message.output_data)
+                #         else:
+                #             await fsm_task.succeed(output_data=message.output_data)
+                #     if message.status == WorkerTaskStatus.FAILED:
+                #         if message.input_data.is_cache_check:
+                #             if message.output_data['returncode'] == constant.CACHE_NOT_EXISTS_RETURNCODE:
+                #                 await fsm_task.cache_not_exists(output_data=message.output_data)
+                #             else:
+                #                 await fsm_task.cache_check_failed(output_data=message.output_data)
+                #         else:
+                #             await fsm_task.fail(output_data=message.output_data)
+                #     del self.fsm_tasks[task_id]
 
                 # if message.status == WorkerTaskStatus.SUCCESS:
                 #     await fsm_task.succeed(output_data=message.output_data)
@@ -98,18 +126,56 @@ class Daemon:
                         TaskStatus.SUCCESS,
                         TaskStatus.FAILED,
                         TaskStatus.RUNNING,
-                        # TaskStatus.CACHE_CHECK_RUNNING, # todo uncomment
-                        # TaskStatus.PENDING,
-                        # TaskStatus.WAIT_UPSTREAM,
+                        TaskStatus.CACHE_CHECK_RUNNING,
                     ]),
                 )
                 .all()
             ):
                 fsm_task = self.fsm_tasks[task.id]
                 if task.status == TaskStatus.PENDING:
-                    await fsm_task.try_queue_cache_check()
-                elif task.status == TaskStatus.CACHE_CHECK_RUNNING:
-                    await fsm_task.check_cache()
+                    if task.type != 'dag' and task.input_data.get('exists_command') is not None:
+                        # db_task = models.Task(
+                        #     type='shell',
+                        #     input_data={
+                        #         'command': task.input_data['exists_command'],
+                        #         'env': task.input_data['exists_env'],
+                        #         'is_cache_check': True,
+                        #         'original_task_id': str(task.id),
+                        #     },
+                        #     worker=read_worker(self.db, 'cpu'), # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
+                        #     dag_id=task.dag_id,
+                        #     daemon_id=self.id,
+                        #     status=TaskStatus.QUEUED_CACHE_CHECK,
+                        # )
+                        # self.db.add(db_task)
+                        # self.db.commit()
+                        # self.db.refresh(db_task)
+
+                        # await self.redis.lpush(
+                        #     f'{constant.QUEUE_TASK}:{db_task.worker.name}',
+                        #     schemas.TaskMessage(
+                        #         id=str(db_task.id),
+                        #         input_data=db_task.input_data,
+                        #         daemon_id=str(self.id),
+                        #     ).json(),
+                        # )
+                        input_data={
+                            'command': task.input_data['exists_command'],
+                            'env': task.input_data['exists_env'],
+                            'is_cache_check': True,
+                            'original_task_id': str(task.id),
+                        }
+                        await self.redis.lpush(
+                            f'{constant.QUEUE_TASK}:cpu', # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
+                            schemas.TaskMessage(
+                                id=str(uuid.uuid4()),
+                                input_data=input_data,
+                                daemon_id=str(self.id),
+                            ).json(),
+                        )
+                        await fsm_task.queue_cache_check()
+                    else:
+                        await fsm_task.try_queue_cache_check()
                 elif task.status == TaskStatus.WAIT_UPSTREAM:
                     await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream) # try refresh db_obj, and not pass upstream
                 else:
@@ -117,6 +183,7 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def create_dag(self, file: str) -> models.Task:
+        print('$$ creating dag for file', file, '...')
         dag = self.create_dag_func(file)
         dag_head_task, tasks = dag_crud.create(
             self.db, schemas.DagCreate(

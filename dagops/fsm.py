@@ -34,8 +34,12 @@ class Task:
 
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE, conditions=['is_cache_path_locked'], after=['update_db'])
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
-        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, conditions=['is_cache_can_be_checked'], after=['send_message_to_worker2', 'update_db'])
+        # self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, conditions=['is_cache_can_be_checked'], after=['send_message_to_worker2', 'update_db'])
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after=['update_db']) # if not is_cache_can_be_checked - wait upstream w/o cache check
+
+        self.machine.add_transition('queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, after=['update_db'])
+
+
 
         self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
 
@@ -125,12 +129,13 @@ class Task:
         input_data = {
             'command': self.db_obj.input_data['exists_command'],
             'env': self.db_obj.input_data['exists_env'],
-            'is_cache': True,
+            'is_cache_check': True,
         }
         await self.redis.lpush(
             f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
             schemas.TaskMessage(
-                id=str(self.db_obj.id),
+                # id=str(self.db_obj.id),
+                id=f'cache-{self.db_obj.id}',
                 input_data=input_data,
                 daemon_id=str(self.db_obj.daemon_id),
             ).json(),

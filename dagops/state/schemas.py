@@ -40,14 +40,14 @@ class ShellTaskInputData(BaseModel):
     env: dict[str, str] | None = None
     exists_command: list[str] | None = None
     exists_env: dict[str, str] | None = None
-    is_cache: bool = False
+    is_cache_check: bool = False
+    original_task_id: str | None = None
 
-    @root_validator
-    def validate_cache(cls, values):
-        if values['is_cache']:
-            if values['exists_command'] is None:
-                raise ValueError('exists_command must be set when is_cache=True')
-        return values
+    # @root_validator
+    # def validate_cache(cls, values):
+    #     if values['is_cache_check'] and values['exists_command'] is None:
+    #         raise ValueError('exists_command must be set when is_cache_check=True')
+    #     return values
 
     def __hash__(self):
         command = tuple(self.command)

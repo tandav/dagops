@@ -10,7 +10,7 @@ def redis_key(key):
     return [sys.executable, str(Path(__file__).parent / 'redis_key.py'), key]
 
 
-def check(
+def command(
     path: str,
     redis_scheme='redis://',
     file_scheme='file://',

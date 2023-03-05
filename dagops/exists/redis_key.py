@@ -6,6 +6,8 @@ from dagops.dependencies import get_redis_cm
 
 
 async def main():
+    # raise SystemExit(CACHE_NOT_EXISTS_RETURNCODE)
+
     with get_redis_cm() as redis:
         if await redis.exists(sys.argv[1]):
             print(f'redis key exists: {sys.argv[1]!r}')
