@@ -37,7 +37,7 @@ class Task:
 
         self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
 
-        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_exists'], after=['update_db'])
+        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_path_exists'], after=['update_db'])
         self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, conditions=['is_cache_check_failed'], after=['update_db'])
         self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
 
@@ -61,7 +61,7 @@ class Task:
         return False
         # return self.db_obj.cache_path_locked
 
-    def is_cache_exists(self, **kwargs) -> bool:
+    def is_cache_path_exists(self, **kwargs) -> bool:
         return False
 
     def is_cache_check_failed(self, **kwargs) -> bool:
