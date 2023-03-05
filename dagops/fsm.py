@@ -51,13 +51,13 @@ class Task:
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
 
-    def all_upstream_success(self, upstream: list[models.Task], **kwargs):
+    def all_upstream_success(self, upstream: list[models.Task], **kwargs) -> bool:
         return all(u.status == TaskStatus.SUCCESS for u in upstream)
 
-    def any_upstream_failed(self, upstream: list[models.Task], **kwargs):
+    def any_upstream_failed(self, upstream: list[models.Task], **kwargs) -> bool:
         return any(u.status == TaskStatus.FAILED for u in upstream)
 
-    def is_dag(self, **kwargs):
+    def is_dag(self, **kwargs) -> bool:
         return self.db_obj.type == 'dag'
 
     def update_db(self, **kwargs):
