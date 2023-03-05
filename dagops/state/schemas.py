@@ -6,7 +6,9 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import root_validator
 
-from dagops.task_status import TaskStatus
+from dagops import constant
+from dagops.state.status import TaskStatus
+from dagops.state.status import WorkerTaskStatus
 
 # =============================================================================
 
@@ -24,7 +26,7 @@ class WithDuration(BaseModel):
             if stopped_at is not None:
                 values['duration_seconds'] = (stopped_at - started_at).total_seconds()
             else:
-                values['duration_seconds'] = (datetime.datetime.now(tz=datetime.timezone.utc) - started_at).total_seconds()
+                values['duration_seconds'] = (datetime.datetime.utcnow() - started_at).total_seconds()
         return values
 
 # =============================================================================
@@ -37,21 +39,26 @@ class WithWorkerName(BaseModel):
 class ShellTaskInputData(BaseModel):
     command: list[str]
     env: dict[str, str] | None = None
+    exists_command: list[str] | None = None
+    exists_env: dict[str, str] | None = None
 
     def __hash__(self):
         command = tuple(self.command)
         env = frozenset(self.env.items()) if self.env is not None else None
-        return hash((command, env))
+        exists_command = tuple(self.exists_command) if self.exists_command is not None else None
+        exists_env = frozenset(self.exists_env.items()) if self.exists_env is not None else None
+        return hash((command, env, exists_command, exists_env))
 
 
 class TaskMessage(BaseModel):
     id: str
     input_data: ShellTaskInputData
+    daemon_id: str
 
 
-class TaskStatusMessage(BaseModel):
+class WorkerTaskStatusMessage(BaseModel):
     id: str
-    status: TaskStatus
+    status: WorkerTaskStatus
     output_data: dict | None = None
 
 
@@ -113,8 +120,21 @@ class TaskUpdate(BaseModel):
     output_data: dict | None = None
     worker_id: UUID | None = None
     running_worker_id: UUID | None = None
-    upstream: list[UUID] | None = None
 
+
+class TaskRunResult(BaseModel):
+    exists_returncode: int | None = None
+    returncode: int | None = None
+
+    @root_validator
+    def validate_returncodes(cls, values):
+        if values['exists_returncode'] is None and values['returncode'] is None:
+            raise ValueError('at least one of returncodes should be set')
+        if values['exists_returncode'] is None:
+            return values
+        if values['exists_returncode'] != constant.NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
+            raise ValueError(f'task should be run only if exists check not passed {values}')
+        return values
 
 # =============================================================================
 

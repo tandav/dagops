@@ -4,7 +4,7 @@ from dagops.state import models
 from dagops.state.crud.base import CRUD
 from dagops.state.crud.worker import worker_crud
 from dagops.state.schemas import TaskCreate
-from dagops.task_status import TaskStatus
+from dagops.state.status import TaskStatus
 
 
 class TaskCRUD(CRUD):

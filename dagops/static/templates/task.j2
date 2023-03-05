@@ -34,19 +34,19 @@
     </tr>
     <tr>
         <td>created_at</td>
-        <td><code>{{ task.created_at|format_time if task.created_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.created_at|format_time_utc if task.created_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>updated_at</td>
-        <td><code>{{ task.updated_at|format_time if task.updated_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.updated_at|format_time_utc if task.updated_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>started_at</td>
-        <td><code>{{ task.started_at|format_time if task.started_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.started_at|format_time_utc if task.started_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>stopped_at</td>
-        <td><code>{{ task.stopped_at|format_time if task.stopped_at is not none else 'NULL'}}</code></td>
+        <td><code>{{ task.stopped_at|format_time_utc if task.stopped_at is not none else 'NULL'}}</code></td>
     </tr>
     <tr>
         <td>duration</td>

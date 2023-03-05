@@ -1,0 +1,27 @@
+import enum
+
+
+class TaskStatus(enum.Enum):
+    """
+    QUEUED means waiting worker to pick up
+    """
+    PENDING = 'PENDING'
+    # WAIT_CACHE_PATH_RELEASE = 'WAIT_CACHE_PATH_RELEASE'
+    # QUEUED_CACHE_CHECK = 'QUEUED_CACHE_CHECK'
+    # CACHE_CHECK = 'CACHE_CHECK'
+    # CACHE_EXISTS = 'CACHE_EXISTS'
+    # CACHE_NOT_EXISTS = 'CACHE_NOT_EXISTS'
+    # CACHE_CHECK_FAILED = 'CACHE_CHECK_FAILED'
+    WAIT_UPSTREAM = 'WAIT_UPSTREAM'
+    QUEUED_RUN = 'QUEUED_RUN'
+    RUNNING = 'RUNNING'
+    SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'
+    CANCELED = 'CANCELED'
+
+
+class WorkerTaskStatus(enum.Enum):
+    QUEUED = 'QUEUED'
+    RUNNING = 'RUNNING'
+    SUCCESS = 'SUCCESS'
+    FAILED = 'FAILED'

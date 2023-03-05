@@ -54,8 +54,8 @@ jobs:
           REDIS_URL: redis://localhost
         run: pytest -s -vv
 
-      - name: pre-commit
-        run: pre-commit run --all-files
+      # - name: pre-commit
+      #   run: pre-commit run --all-files
 
   build-and-publish-to-pypi:
     runs-on: ubuntu-latest

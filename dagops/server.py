@@ -23,6 +23,7 @@ from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
 from dagops.state.crud.task import task_crud
 from dagops.state.crud.worker import worker_crud
+from dagops.state.status import TaskStatus
 
 static_folder = Path(__file__).parent / 'static'
 app = FastAPI()
@@ -31,6 +32,7 @@ app = FastAPI()
 app.mount('/static/', StaticFiles(directory=static_folder), name='static')
 templates = Jinja2Templates(directory=static_folder / 'templates')
 templates.env.filters['format_time'] = util.format_time
+templates.env.filters['format_time_utc'] = util.format_time_utc
 
 
 # =============================================================================
@@ -146,7 +148,7 @@ async def read_tasks(
     db_objects = [db_obj.to_dict() for db_obj in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects})
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects, 'statuses': TaskStatus})
 
 
 @app.get('/tasks/{task_id}', response_class=HTMLResponse)
@@ -221,7 +223,7 @@ async def read_dags(
     db_objects = [x.to_dict() for x in db_objects]
     db_objects = [schemas.Task(**db_obj) for db_obj in db_objects]
     db_objects = sorted(db_objects, key=lambda x: x.created_at, reverse=True)
-    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects, 'heading': 'dags'})
+    return templates.TemplateResponse('tasks.j2', {'request': request, 'tasks': db_objects, 'statuses': TaskStatus, 'heading': 'dags'})
 
 
 # @app.get('/dags/{dag_id}', response_class=HTMLResponse)

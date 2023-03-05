@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from dagops import constant
 from dagops.dependencies import get_db_cm
+from dagops.fsm import WorkerTask
 from dagops.state import schemas
 from dagops.state.crud.worker import worker_crud
-from dagops.task_status import TaskStatus
 
 
 class Worker:
@@ -22,21 +22,59 @@ class Worker:
         self.aiotask_to_task_id = {}
         self.aio_tasks_channel = f'{constant.CHANNEL_AIO_TASKS}:{self.name}'
         self.redis = redis
+        self.fsm_tasks = {}
 
     def __repr__(self):
         return f'Worker({self.name}, {self.maxtasks})'
 
-    async def run_task(self, task: schemas.TaskMessage) -> asyncio.subprocess.Process:
+    async def run_subprocess(
+        self,
+        log_id: str,
+        command: list[str],
+        env: dict[str, str] | None = None,
+    ) -> asyncio.subprocess.Process:
         p = await asyncio.create_subprocess_exec(
-            *task.input_data.command,
-            env=task.input_data.env,
+            *command,
+            env=env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
+        log_key = f'{constant.LIST_LOGS}:{log_id}'
+        await self.redis.rpush(log_key, '')  # create empty line to set ttl before logs are written
+        await self.redis.expire(log_key, constant.LOGS_TTL)
         async for line in p.stdout:
-            await self.redis.rpush(f'{constant.LIST_LOGS}:{task.id}', line)
+            await self.redis.rpush(log_key, line)
         await p.communicate()
         return p
+
+    async def run_task(self, task: schemas.TaskMessage) -> schemas.TaskRunResult:
+        """MVP: without sending status updates to daemon
+        TODO: Cache check should be on daemon side. #49
+        delete this method, use only run_subprocess
+        """
+        exists_returncode = None
+        if task.input_data.exists_command is not None:
+            exists_p = await self.run_subprocess(
+                f'{task.id}:exists',
+                task.input_data.exists_command,
+                task.input_data.exists_env,
+            )
+            if exists_p.returncode == 0:
+                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+            elif exists_p.returncode == constant.NOT_EXISTS_RETURNCODE:
+                exists_returncode = exists_p.returncode
+            else:
+                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+        print('-----> run_task', task, 'exists_returncode=', exists_returncode)
+        p = await self.run_subprocess(
+            task.id,
+            task.input_data.command,
+            task.input_data.env,
+        )
+        return schemas.TaskRunResult(
+            exists_returncode=exists_returncode,
+            returncode=p.returncode,
+        )
 
     async def run_tasks_from_queue(self):
         while True:
@@ -44,19 +82,12 @@ class Worker:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
             print('run_tasks_from_queue', len(self.aiotask_to_task_id))
-            _, message = await self.redis.brpop(constant.CHANNEL_TASK_QUEUE)
+            _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
-            print('run_tasks_from_queue', task)
-            self.aiotask_to_task_id[asyncio.create_task(self.run_task(task))] = task.id
-            pipeline = self.redis.pipeline()
-            pipeline.lpush(self.aio_tasks_channel, task.id)
-            pipeline.lpush(
-                constant.CHANNEL_TASK_STATUS, schemas.TaskStatusMessage(
-                    id=task.id,
-                    status=TaskStatus.RUNNING,
-                ).json(),
-            )
-            await pipeline.execute()
+            fsm_task = WorkerTask(task, self, self.redis)
+            self.fsm_tasks[task.id] = fsm_task
+            await fsm_task.run()
+            print(fsm_task.state)
 
     async def handle_aio_tasks(self):
         while True:
@@ -67,16 +98,17 @@ class Worker:
                 continue
             done, running = await asyncio.wait(self.aiotask_to_task_id, return_when=asyncio.FIRST_COMPLETED)
             for aiotask in done:
-                p = aiotask.result()
-                assert p.returncode is not None
-                status_message = schemas.TaskStatusMessage(
-                    id=self.aiotask_to_task_id[aiotask],
-                    status=TaskStatus.SUCCESS if p.returncode == 0 else TaskStatus.FAILED,
-                    output_data={'returncode': p.returncode},
-                )
-                await self.redis.lpush(constant.CHANNEL_TASK_STATUS, status_message.json())
+                task_run_result = aiotask.result()
+                task_id = self.aiotask_to_task_id[aiotask]
+                fsm_task = self.fsm_tasks[task_id]
+
+                if task_run_result.exists_returncode == 0 or task_run_result.returncode == 0:
+                    await fsm_task.succeed(returncode=0)
+                else:
+                    await fsm_task.fail(returncode=task_run_result.returncode or task_run_result.exists_returncode)
+
+                del self.fsm_tasks[task_id]
                 del self.aiotask_to_task_id[aiotask]
-                print('EXITING TASK', status_message)
 
     async def __call__(self):
         await self.redis.delete(self.aio_tasks_channel)
