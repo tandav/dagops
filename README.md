@@ -1,4 +1,4 @@
-![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/tandav/dagops)
+[![PyPI version](https://img.shields.io/pypi/v/dagops.svg?logo=pypi&logoColor=FFE873)](https://pypi.org/project/dagops/)
 
 # dagops
 dag/task runner
