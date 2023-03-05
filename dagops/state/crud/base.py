@@ -1,5 +1,4 @@
 from typing import Any
-from typing import Type
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +7,7 @@ from dagops.state.models import Base
 
 
 class CRUD:
-    def __init__(self, model: Type[Base]):
+    def __init__(self, model: type[Base]):
         self.model = model
 
     def read_by_id(self, db: Session, id: int) -> Base:

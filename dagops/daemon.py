@@ -2,8 +2,8 @@ import asyncio
 import datetime
 import os
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 from typing import Literal
 
 import aiofiles.os
