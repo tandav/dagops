@@ -39,18 +39,19 @@ source = "https://github.com/tandav/dagops"
 # "Issue tracker" = "https://github.com/python-humanize/humanize/issues"
 # "Release notes" = "https://github.com/python-humanize/humanize/releases"
 
+# ==============================================================================
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-
-[tool.setuptools]
-packages = ["dagops"]
+[tool.setuptools.packages]
+find = {}
 
 [tool.setuptools.package-data]
 "dagops.static" = ["**/*"]
 
+# ==============================================================================
 
 [tool.bumpver]
 current_version = "v0.5.0"
@@ -67,6 +68,8 @@ tag = true
 "dagops/__init__.py" = [
     "^__version__ = '{pep440_version}'",
 ]
+
+# ==============================================================================
 
 [tool.mypy]
 # todo: review this
@@ -97,6 +100,8 @@ warn_unused_ignores = true
 module = ["tests.*"]
 disallow_untyped_defs = false
 
+# ==============================================================================
+
 [tool.ruff]
 select = [
     "E", "W", # pycodestyle
@@ -111,3 +116,5 @@ ignore = [
 
 [tool.ruff.isort]
 force-single-line = true
+
+# ==============================================================================
