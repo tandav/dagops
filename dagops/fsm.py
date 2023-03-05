@@ -30,10 +30,12 @@ class Task:
         )
 
         # MVP: no wait for cache path release
+        # todo: add WAIT_CACHE_PATH_RELEASE -> QUEUED_CACHE_CHECK transition
 
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE, conditions=['is_cache_path_locked'], after=['update_db'])
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
-        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, after=['update_db'])
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, conditions=['is_cache_can_be_checked'], after=['send_message_to_worker2', 'update_db'])
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after=['update_db']) # if not is_cache_can_be_checked - wait upstream w/o cache check
 
         self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
 
@@ -56,6 +58,9 @@ class Task:
         for method in ('delete_running_worker', 'update_stopped_at'):
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
+
+    def is_cache_can_be_checked(self, **kwargs) -> bool:
+        return self.db_obj.input_data.get('exists_command') is not None
 
     def is_cache_path_locked(self, **kwargs) -> bool:
         return False
@@ -99,6 +104,22 @@ class Task:
         self.db_obj.stopped_at = datetime.datetime.utcnow()
 
     async def send_message_to_worker(self, **kwargs):
+        await self.redis.lpush(
+            f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
+            schemas.TaskMessage(
+                id=str(self.db_obj.id),
+                input_data=self.db_obj.input_data,
+                daemon_id=str(self.db_obj.daemon_id),
+            ).json(),
+        )
+
+    async def send_message_to_worker2(self, **kwargs):
+        """
+        send check cache message to worker
+        """
+        input_data = self.db_obj.input_data
+        input_data['command'] = input_data.pop('exists_command')
+
         await self.redis.lpush(
             f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
             schemas.TaskMessage(

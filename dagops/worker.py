@@ -52,27 +52,27 @@ class Worker:
         TODO: Cache check should be on daemon side. #49
         delete this method, use only run_subprocess
         """
-        exists_returncode = None
-        if task.input_data.exists_command is not None:
-            exists_p = await self.run_subprocess(
-                f'{task.id}:exists',
-                task.input_data.exists_command,
-                task.input_data.exists_env,
-            )
-            if exists_p.returncode == 0:
-                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
-            elif exists_p.returncode == constant.NOT_EXISTS_RETURNCODE:
-                exists_returncode = exists_p.returncode
-            else:
-                return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
-        print('-----> run_task', task, 'exists_returncode=', exists_returncode)
+        # exists_returncode = None
+        # if task.input_data.exists_command is not None:
+        #     exists_p = await self.run_subprocess(
+        #         f'{task.id}:exists',
+        #         task.input_data.exists_command,
+        #         task.input_data.exists_env,
+        #     )
+        #     if exists_p.returncode == 0:
+        #         return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+        #     elif exists_p.returncode == constant.NOT_EXISTS_RETURNCODE:
+        #         exists_returncode = exists_p.returncode
+        #     else:
+        #         return schemas.TaskRunResult(exists_returncode=exists_p.returncode)
+        # print('-----> run_task', task, 'exists_returncode=', exists_returncode)
         p = await self.run_subprocess(
             task.id,
             task.input_data.command,
             task.input_data.env,
         )
         return schemas.TaskRunResult(
-            exists_returncode=exists_returncode,
+            # exists_returncode=exists_returncode,
             returncode=p.returncode,
         )
 
