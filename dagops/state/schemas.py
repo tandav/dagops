@@ -57,8 +57,9 @@ class TaskMessage(BaseModel):
 
 class WorkerTaskStatusMessage(BaseModel):
     id: str
-    status: WorkerTaskStatus
+    input_data: ShellTaskInputData
     output_data: dict | None = None
+    status: WorkerTaskStatus
 
 
 class TaskInfo(ShellTaskInputData, WithWorkerName):

@@ -160,6 +160,7 @@ class WorkerTask:
         pipeline.lpush(
             f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.WorkerTaskStatusMessage(
                 id=task.id,
+                input_data=self.task.input_data,
                 status=WorkerTaskStatus.RUNNING,
             ).json(),
         )
@@ -169,8 +170,9 @@ class WorkerTask:
         task_id = self.task.id
         status_message = schemas.WorkerTaskStatusMessage(
             id=task_id,
-            status=self.state,
+            input_data=self.task.input_data,
             output_data={'returncode': returncode},
+            status=self.state,
         )
         daemon_id = self.task.daemon_id
         await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())
