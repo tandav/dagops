@@ -74,18 +74,28 @@ class Daemon:
                 .query(models.Task)
                 .filter(models.Task.daemon_id == self.id)
                 .filter(
-                    models.Task.status.in_([
-                        TaskStatus.PENDING,
-                        TaskStatus.WAIT_UPSTREAM,
+                    models.Task.status.not_in([
+                        TaskStatus.SUCCESS,
+                        TaskStatus.FAILED,
+                        TaskStatus.RUNNING,
+                        # TaskStatus.CACHE_CHECK_RUNNING, # todo uncomment
+                        # TaskStatus.PENDING,
+                        # TaskStatus.WAIT_UPSTREAM,
                     ]),
                 )
                 .all()
             ):
                 fsm_task = self.fsm_tasks[task.id]
                 if task.status == TaskStatus.PENDING:
-                    await fsm_task.wait_upstream()
+                    await fsm_task.try_queue_cache_check()
+                elif task.status == TaskStatus.QUEUED_CACHE_CHECK:
+                    await fsm_task.run_cache_check() # todo run using message from worker
+                elif task.status == TaskStatus.CACHE_CHECK_RUNNING:
+                    await fsm_task.check_cache()
                 elif task.status == TaskStatus.WAIT_UPSTREAM:
-                    await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream)
+                    await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream) # try refresh db_obj, and not pass upstream
+                else:
+                    raise ValueError(f'unsupported task status {task.status}')
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def create_dag(self, file: str) -> models.Task:

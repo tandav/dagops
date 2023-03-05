@@ -29,11 +29,17 @@ class Task:
             initial=TaskStatus.PENDING,
         )
 
-        # MVP: no cache check
-        # self.machine.add_transition('wait_cache_path_release', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE)
+        # MVP: no wait for cache path release
 
-        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db'])
-        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after='update_db')
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE, conditions=['is_cache_path_locked'], after=['update_db'])
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, after=['update_db'])
+
+        self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
+
+        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_exists'], after=['update_db'])
+        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, conditions=['is_cache_check_failed'], after=['update_db'])
+        self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
 
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.SUCCESS, conditions=['all_upstream_success', 'is_dag'], after='update_db')
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, conditions=['all_upstream_success'], after=['update_db', 'send_message_to_worker'])
@@ -50,6 +56,16 @@ class Task:
         for method in ('delete_running_worker', 'update_stopped_at'):
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
+
+    def is_cache_path_locked(self, **kwargs) -> bool:
+        return False
+        # return self.db_obj.cache_path_locked
+
+    def is_cache_exists(self, **kwargs) -> bool:
+        return False
+
+    def is_cache_check_failed(self, **kwargs) -> bool:
+        return False
 
     def all_upstream_success(self, upstream: list[models.Task], **kwargs) -> bool:
         return all(u.status == TaskStatus.SUCCESS for u in upstream)
