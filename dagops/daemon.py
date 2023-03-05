@@ -54,17 +54,16 @@ class Daemon:
             if kv is not None:
                 _, message = kv
                 print(self.watch_directory, 'handle_tasks', message)
-                worker_task_status = schemas.WorkerTaskStatusMessage.parse_raw(message)
-
-                task_id = uuid.UUID(worker_task_status.id)
+                message = schemas.WorkerTaskStatusMessage.parse_raw(message)
+                task_id = uuid.UUID(message.id)
                 fsm_task = self.fsm_tasks[task_id]
-                if worker_task_status.status == WorkerTaskStatus.RUNNING:
+                if message.status == WorkerTaskStatus.RUNNING:
                     await fsm_task.run()
-                if worker_task_status.status == WorkerTaskStatus.SUCCESS:
-                    await fsm_task.succeed(output_data=worker_task_status.output_data)
+                if message.status == WorkerTaskStatus.SUCCESS:
+                    await fsm_task.succeed(output_data=message.output_data)
                     del self.fsm_tasks[task_id]
-                if worker_task_status.status == WorkerTaskStatus.FAILED:
-                    await fsm_task.fail(output_data=worker_task_status.output_data)
+                if message.status == WorkerTaskStatus.FAILED:
+                    await fsm_task.fail(output_data=message.output_data)
                     del self.fsm_tasks[task_id]
 
     async def handle_tasks(self):
