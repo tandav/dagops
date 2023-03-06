@@ -6,7 +6,7 @@ from dagops.dependencies import get_redis_cm
 
 
 async def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2:  # noqa: PLR2004
         raise SystemExit('pass redis key as first argument')
     key = sys.argv[1]
     with get_redis_cm() as redis:

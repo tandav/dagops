@@ -70,7 +70,7 @@ def format_time(
 ) -> str:
     if timezone is not None:
         t = to_local_time(t, timezone)
-    if absolute or (datetime.datetime.utcnow() - t).days > 30:
+    if absolute or (datetime.datetime.utcnow() - t).days > 30:  # noqa: PLR2004
         return t.strftime('%Y %b %d %H:%M')
     t = datetime.datetime.fromtimestamp(t.timestamp())
     out = humanize.naturaltime(t)

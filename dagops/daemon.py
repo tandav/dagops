@@ -144,7 +144,7 @@ class Daemon:
                     else:
                         raise ValueError(f'unsupported task status {task.status}')
                 else:
-                    if task.status == TaskStatus.PENDING:
+                    if task.status == TaskStatus.PENDING:  # noqa: PLR5501
                         if task.input_data.get('exists_command') is not None:
                             # db_task = models.Task(
                             #     type='shell',

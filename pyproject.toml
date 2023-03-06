@@ -104,14 +104,29 @@ disallow_untyped_defs = false
 extend-select = [
     "W",
     "C",
-    "I",      # isort
-    "PTH",    # pathlib
+    "I",
+    "PTH",
+    "SIM",
     "TCH",
     "C4",
+    "S",
+    "BLE",
+    "B",
+    "T10",
+    "INP",
+    "PIE",
+    "PL",
+    "RUF",
 ]
 ignore = [
     "E501",  # line too long
+    "B008",
+    "PLR0913",
 ]
+
+[tool.ruff.per-file-ignores]
+"examples/*" = ["INP001"]
+"tests/*" = ["S101"]
 
 [tool.ruff.isort]
 force-single-line = true
