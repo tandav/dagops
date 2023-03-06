@@ -125,65 +125,77 @@ class Daemon:
                     models.Task.status.not_in([
                         TaskStatus.SUCCESS,
                         TaskStatus.FAILED,
+                        TaskStatus.QUEUED_RUN,
                         TaskStatus.RUNNING,
+                        TaskStatus.QUEUED_CACHE_CHECK,
                         TaskStatus.CACHE_CHECK_RUNNING,
                     ]),
                 )
                 .all()
             ):
-                fsm_task = self.fsm_tasks[task.id]
-                if task.status == TaskStatus.PENDING:
-                    if task.type != 'dag' and task.input_data.get('exists_command') is not None:
-                        # db_task = models.Task(
-                        #     type='shell',
-                        #     input_data={
-                        #         'command': task.input_data['exists_command'],
-                        #         'env': task.input_data['exists_env'],
-                        #         'is_cache_check': True,
-                        #         'original_task_id': str(task.id),
-                        #     },
-                        #     worker=read_worker(self.db, 'cpu'), # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
-                        #     dag_id=task.dag_id,
-                        #     daemon_id=self.id,
-                        #     status=TaskStatus.QUEUED_CACHE_CHECK,
-                        # )
-                        # self.db.add(db_task)
-                        # self.db.commit()
-                        # self.db.refresh(db_task)
 
-                        # await self.redis.lpush(
-                        #     f'{constant.QUEUE_TASK}:{db_task.worker.name}',
-                        #     schemas.TaskMessage(
-                        #         id=str(db_task.id),
-                        #         input_data=db_task.input_data,
-                        #         daemon_id=str(self.id),
-                        #     ).json(),
-                        # )
-                        input_data={
-                            'command': task.input_data['exists_command'],
-                            'env': task.input_data['exists_env'],
-                            'is_cache_check': True,
-                            'original_task_id': str(task.id),
-                        }
-                        await self.redis.lpush(
-                            f'{constant.QUEUE_TASK}:cpu', # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
-                            schemas.TaskMessage(
-                                id=str(uuid.uuid4()),
-                                input_data=input_data,
-                                daemon_id=str(self.id),
-                            ).json(),
-                        )
-                        await fsm_task.queue_cache_check()
+                await self.redis.rpush(constant.TEST_LOGS_KEY, f'{task.id.hex[:5]} {task.type} {task.status} {task.input_data}')
+                fsm_task = self.fsm_tasks[task.id]
+                if task.type == 'dag':
+                    if task.status == TaskStatus.PENDING:
+                        await fsm_task.wait_upstream()
+                    elif task.status == TaskStatus.WAIT_UPSTREAM:
+                        await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream) # try refresh db_obj, and not pass upstream
                     else:
-                        await fsm_task.try_queue_cache_check()
-                elif task.status == TaskStatus.WAIT_UPSTREAM:
-                    await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream) # try refresh db_obj, and not pass upstream
+                        raise ValueError(f'unsupported task status {task.status}')
                 else:
-                    raise ValueError(f'unsupported task status {task.status}')
+                    if task.status == TaskStatus.PENDING:
+                        if task.input_data.get('exists_command') is not None:
+                            # db_task = models.Task(
+                            #     type='shell',
+                            #     input_data={
+                            #         'command': task.input_data['exists_command'],
+                            #         'env': task.input_data['exists_env'],
+                            #         'is_cache_check': True,
+                            #         'original_task_id': str(task.id),
+                            #     },
+                            #     worker=read_worker(self.db, 'cpu'), # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
+                            #     dag_id=task.dag_id,
+                            #     daemon_id=self.id,
+                            #     status=TaskStatus.QUEUED_CACHE_CHECK,
+                            # )
+                            # self.db.add(db_task)
+                            # self.db.commit()
+                            # self.db.refresh(db_task)
+
+                            # await self.redis.lpush(
+                            #     f'{constant.QUEUE_TASK}:{db_task.worker.name}',
+                            #     schemas.TaskMessage(
+                            #         id=str(db_task.id),
+                            #         input_data=db_task.input_data,
+                            #         daemon_id=str(self.id),
+                            #     ).json(),
+                            # )
+                            input_data={
+                                'command': task.input_data['exists_command'],
+                                'env': task.input_data['exists_env'],
+                                'is_cache_check': True,
+                                'original_task_id': str(task.id),
+                            }
+                            await self.redis.lpush(
+                                f'{constant.QUEUE_TASK}:cpu', # todo: fix this hardcode. cache should have own worker (possibly not equal to task.worker) (you dont need gpu to check redis key)
+                                schemas.TaskMessage(
+                                    id=str(uuid.uuid4()),
+                                    input_data=input_data,
+                                    daemon_id=str(self.id),
+                                ).json(),
+                            )
+                            await fsm_task.queue_cache_check()
+                        else:
+                            await fsm_task.try_queue_cache_check()
+                    elif task.status == TaskStatus.WAIT_UPSTREAM:
+                        await self.fsm_tasks[task.id].check_upstream(upstream=task.upstream) # try refresh db_obj, and not pass upstream
+                    else:
+                        raise ValueError(f'unsupported task status {task.status}')
             await asyncio.sleep(constant.SLEEP_TIME)
 
     async def create_dag(self, file: str) -> models.Task:
-        print('$$ creating dag for file', file, '...')
+        print('creating dag for file', file, '...')
         dag = self.create_dag_func(file)
         dag_head_task, tasks = dag_crud.create(
             self.db, schemas.DagCreate(
@@ -236,6 +248,9 @@ class Daemon:
             if stale_files_ids:
                 print(f'deleting {len(stale_files_ids)} stale files...')
                 file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
+
+            await self.redis.rpush(constant.TEST_LOGS_KEY, f'{self.id} do_watch_directory {files=} {up_to_date_files_paths=}')
+
             new_files = files - up_to_date_files_paths
             if new_files:
                 print(f'creating {len(new_files)} new files...')

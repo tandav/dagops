@@ -32,8 +32,9 @@ class Task:
         # MVP: no wait for cache path release
         # todo: add WAIT_CACHE_PATH_RELEASE -> QUEUED_CACHE_CHECK transition
 
+        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
+
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE, conditions=['is_cache_path_locked'], after=['update_db'])
-        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
         # self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, conditions=['is_cache_can_be_checked'], after=['send_message_to_worker2', 'update_db'])
         self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after=['update_db']) # if not is_cache_can_be_checked - wait upstream w/o cache check
 

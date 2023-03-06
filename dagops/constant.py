@@ -5,8 +5,8 @@ QUEUE_TASK_STATUS = f'{PREFIX}:queue:task_status'
 CHANNEL_AIO_TASKS = f'{PREFIX}:aio_tasks'
 CHANNEL_FILES = f'{PREFIX}:files'
 LIST_LOGS = f'{PREFIX}:logs'
-LIST_ERROR = f'{PREFIX}:errors'
 LOCKS = f'{PREFIX}:locks'
+TEST_LOGS_KEY = f'{PREFIX}:test-logs'
 
 workers = {'cpu': 32, 'gpu': 1}
 CACHE_NOT_EXISTS_RETURNCODE = 87

@@ -1,5 +1,3 @@
-
-
 [project]
 name = "dagops"
 version = "0.5.1"
@@ -103,12 +101,13 @@ disallow_untyped_defs = false
 # ==============================================================================
 
 [tool.ruff]
-select = [
-    "E", "W", # pycodestyle
-    "F",      # pyflakes
+extend-select = [
+    "W",
     "C",
     "I",      # isort
     "PTH",    # pathlib
+    "TCH",
+    "C4",
 ]
 ignore = [
     "E501",  # line too long

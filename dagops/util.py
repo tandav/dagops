@@ -94,3 +94,17 @@ def drop_redis_keys(redis: Redis, prefix: str):
     for key in redis.keys(prefix + '*'):
         pipeline.delete(key)
     pipeline.execute()
+
+
+async def delete_keys(redis, prefix: str):
+    pipeline = redis.pipeline()
+    for key in await redis.keys(prefix + '*'):
+        pipeline.delete(key)
+    await pipeline.execute()
+
+
+def delete_keys_sync(redis, prefix: str):
+    pipeline = redis.pipeline()
+    for key in redis.keys(prefix + '*'):
+        pipeline.delete(key)
+    pipeline.execute()
