@@ -31,7 +31,7 @@ class Daemon:
         create_dag_func: Callable[[str | list[str]], Dag],
         batch: bool = False,
         storage: Literal['filesystem', 'redis'] = 'filesystem',
-    ):
+    ) -> None:
         if storage not in {'filesystem', 'redis'}:
             raise ValueError(f'unsupported storage={storage} It must be filesystem or redis')
         self.id = uuid.uuid4()

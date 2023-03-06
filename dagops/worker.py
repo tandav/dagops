@@ -16,7 +16,7 @@ class Worker:
         name: str,
         maxtasks: int,
         redis: Redis,
-    ):
+    ) -> None:
         self.name = name
         self.maxtasks = maxtasks
         self.aiotask_to_task_id = {}

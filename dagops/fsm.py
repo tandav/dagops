@@ -18,7 +18,7 @@ class Task:
         db_obj: models.Task,
         db: Session,
         redis: Redis,
-    ):
+    ) -> None:
         db.refresh(db_obj)
         self.db_obj = db_obj
         self.db = db

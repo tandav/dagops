@@ -2,7 +2,7 @@ from dagops.state import schemas
 
 
 class Dag:
-    def __init__(self, graph: dict):
+    def __init__(self, graph: dict) -> None:
         self.validate_dag(graph)
         self.graph = graph
         self.input_data, self.id_graph = self.prepare_dag(graph)
