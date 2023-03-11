@@ -9,6 +9,7 @@ import examples.counter
 from dagops import constant
 from dagops.util import delete_keys_sync
 
+
 # @pytest.mark.skip
 # @pytest.mark.asyncio
 # async def test_cache(db, redis, WATCH_DIRECTORY):
@@ -37,7 +38,13 @@ from dagops.util import delete_keys_sync
 #     assert redis.get('counter') == '1'
 
 @pytest.mark.asyncio
-async def test_cache(db, redis):
+@pytest.mark.parametrize(
+    'exists_command, n_iterations', [
+        (None, 2),
+        ('redis://counter', 2),
+    ],
+)
+async def test_cache(exists_command, n_iterations, db, redis):
     WATCH_DIRECTORY = 'some_key'
     # redis.delete(WATCH_DIRECTORY)
     delete_keys_sync(redis, WATCH_DIRECTORY)
@@ -55,20 +62,23 @@ async def test_cache(db, redis):
         graph = examples.counter.create_dag('dummy_file')
 
     MAX_N_SUCCESS = len(graph) + 1
-    for i in range(2):
+    for i in range(n_iterations):
         redis.set(f'{WATCH_DIRECTORY}:{i}', 'some_value')
-        with mock.patch.dict(
-            os.environ, {
-                'N_ITERATIONS': '1',
-                'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
-                'WATCH_DIRECTORY': WATCH_DIRECTORY,
-                'STORAGE': 'redis',
-                'COUNTER_KEY': counter_key,
-            },
-        ):
+        environ_patch = {
+            'N_ITERATIONS': '1',
+            'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
+            'WATCH_DIRECTORY': WATCH_DIRECTORY,
+            'STORAGE': 'redis',
+            'COUNTER_KEY': counter_key,
+        }
+        if exists_command is not None:
+            environ_patch['EXISTS_COMMAND'] = exists_command
+
+        with mock.patch.dict(os.environ, environ_patch):
             subprocess.check_call([sys.executable, 'examples/counter.py'])
 
-    assert redis.get(counter_key) == '1'
+    expected = str(n_iterations) if exists_command is None else '1'
+    assert redis.get(counter_key) == expected
     # todo: try test with broken exists command which always returns False (raise SystemExit(CACHE_NOT_EXISTS_RETURNCODE))
 
 
