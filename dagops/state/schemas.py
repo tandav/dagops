@@ -59,8 +59,18 @@ class ShellTaskInputData(BaseModel):
 
 class TaskMessage(BaseModel):
     id: str
-    input_data: ShellTaskInputData
+    input_data: ShellTaskInputData | None
     daemon_id: str
+    stop_worker_signal: bool | None = None
+
+    @root_validator
+    def validate_input_data(cls, values):
+        if not (
+            (values.get('input_data') is None) ^
+            (values.get('stop_worker_signal') is None)
+        ):
+            raise ValueError('input_data or stop_worker_signal must be set (mutually exclusive)')
+        return values
 
 
 class WorkerTaskStatusMessage(BaseModel):

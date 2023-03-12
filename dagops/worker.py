@@ -1,3 +1,4 @@
+import os
 import asyncio
 
 from redis.asyncio import Redis
@@ -84,6 +85,10 @@ class Worker:
             print('run_tasks_from_queue', len(self.aiotask_to_task_id))
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
+            if task.stop_worker_signal:
+                await self.redis.lpush(self.aio_tasks_channel, constant.STOP_WORKER_MESSAGE)
+                print('run_tasks_from_queue received stop_signal', task)
+                return
             fsm_task = WorkerTask(task, self, self.redis)
             self.fsm_tasks[task.id] = fsm_task
             await fsm_task.run()
@@ -92,6 +97,10 @@ class Worker:
     async def handle_aio_tasks(self):
         while True:
             _, message = await self.redis.brpop(self.aio_tasks_channel)
+            print('handle_aio_tasks', message)
+            if message == constant.STOP_WORKER_MESSAGE:
+                print('handle_aio_tasks received stop_signal', message)
+                return
             print('handle_aio_tasks', message)
             if not self.aiotask_to_task_id:  # todo: try remove
                 await asyncio.sleep(constant.SLEEP_TIME)
@@ -145,9 +154,25 @@ async def prepare_workers(
         await redis.delete(f'{constant.CHANNEL_AIO_TASKS}:{worker_name}')
     return workers_objs
 
+async def wait_all_daemons_exit(workers: list[Worker], redis: Redis):
+    while not await redis.exists(constant.ALL_DAEMONS_DONE_KEY):
+        await asyncio.sleep(constant.SLEEP_TIME)
+    print('wait_all_daemons_exit done', workers)
+    for worker in workers:
+        await redis.lpush(
+            f'{constant.QUEUE_TASK}:{worker.name}',
+            schemas.TaskMessage(
+                id='dummy',
+                daemon_id='dummy',
+                stop_worker_signal=True,
+            ).json(),
+        )
 
-async def run_workers(workers: list[Worker]):
-    await asyncio.gather(*[worker() for worker in workers])
+async def run_workers(workers: list[Worker], redis: Redis):
+    aws = [worker() for worker in workers]
+    if 'TEST_RUN' in os.environ:
+        aws.append(wait_all_daemons_exit(workers, redis))
+    await asyncio.gather(*aws)
 
 if __name__ == '__main__':
     with get_db_cm() as db:

@@ -66,7 +66,7 @@ async def main():
 
         workers = await prepare_workers(db, redis)
         await asyncio.gather(
-            run_workers(workers),
+            run_workers(workers, redis),
             daemon(),
             daemon2(),
         )

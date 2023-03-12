@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import os
 import uuid
+import itertools
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -43,13 +44,36 @@ class Daemon:
         self.storage = storage
         self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
         self.fsm_tasks = {}
-        if MAX_N_SUCCESS := os.environ.get('MAX_N_SUCCESS'):  # this is used for testing only
-            self.max_n_success = int(MAX_N_SUCCESS)
-        else:
-            self.max_n_success = None
+        self._test_run = 'TEST_RUN' in os.environ 
+
+    @property
+    def _test_all_tasks_done(self) -> bool:
+        return (
+            self._test_run and 
+            self.fsm_tasks and
+            all(fsm_task.state == TaskStatus.SUCCESS for fsm_task in self.fsm_tasks.values())
+        )
+    
+    @property
+    def fsm_tasks_bits_string(self) -> str:
+        bits = ''.join(str(int(fsm_task.state == TaskStatus.SUCCESS)) for fsm_task in self.fsm_tasks.values())
+        return f'{len(self.fsm_tasks)} {bits}'
 
     async def handle_worker_messages(self):
         while True:
+            print(f'daemon.handle_worker_messages {self.fsm_tasks_bits_string}')
+            if self._test_all_tasks_done:
+                workers = {fsm_task.db_obj.worker.name for fsm_task in self.fsm_tasks.values()}
+                for worker in workers:
+                    print('handle_worker_messages', 'send stop message to', worker)
+                    await self.redis.lpush(
+                        f'{constant.QUEUE_TASK}:{worker}',
+                        schemas.TaskMessage(
+                            id='dummy',
+                            daemon_id=str(self.id),
+                            stop_worker_signal=True,
+                        ).json(),
+                    )
             kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
@@ -75,10 +99,12 @@ class Daemon:
 
                     elif message.status == WorkerTaskStatus.SUCCESS:
                         await fsm_task.succeed(output_data=message.output_data)
-                        del self.fsm_tasks[task_id]
+                        if not self._test_run:
+                            del self.fsm_tasks[task_id]
                     elif message.status == WorkerTaskStatus.FAILED:
                         await fsm_task.fail(output_data=message.output_data)
-                        del self.fsm_tasks[task_id]
+                        if not self._test_run:
+                            del self.fsm_tasks[task_id]
 
 
 
@@ -116,6 +142,10 @@ class Daemon:
 
     async def handle_tasks(self):
         while True:
+            print(f'daemon.handle_tasks {self.fsm_tasks_bits_string}')
+            if self._test_all_tasks_done:
+                print('handle_tasks', 'all tasks done, exiting')
+                return
             for task in (
                 self
                 .db
@@ -210,70 +240,86 @@ class Daemon:
         print('dag for file', file, 'created')
         return dag_head_task
 
+    async def _update_files_dags_step(self) -> None:
+        _, message = await self.redis.brpop(self.files_channel)
+        print(message)
+        files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
+        files = [file for file in files if file.dag_id is None]
+        if not self.batch:
+            for file in files:
+                print(f'creating dag for file {file.directory}/{file.file}...')
+                dag_head_task = await self.create_dag(file.file)
+                file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
+        elif files:
+            print(f'batch dag for {len(files)} files creating...')
+            dag_head_task = await self.create_dag([file.file for file in files])
+            for file in files:
+                file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
+
     async def update_files_dags(self) -> None:
         """create dags for new files"""
         while True:
-            _, message = await self.redis.brpop(self.files_channel)
-            print(message)
-            files = file_crud.read_by_field(self.db, 'directory', str(self.watch_directory))
-            files = [file for file in files if file.dag_id is None]
-            if not self.batch:
-                for file in files:
-                    print(f'creating dag for file {file.directory}/{file.file}...')
-                    dag_head_task = await self.create_dag(file.file)
-                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
-            elif files:
-                print(f'batch dag for {len(files)} files creating...')
-                dag_head_task = await self.create_dag([file.file for file in files])
-                for file in files:
-                    file_crud.update_by_id(self.db, file.id, schemas.FileUpdate(dag_id=dag_head_task.id))
-
-    async def do_watch_directory(
+            await self._update_files_dags_step()
+ 
+    async def read_files(
         self,
         exclude: frozenset[str] = constant.default_files_exclude,
-    ) -> None:
+    ) -> set[str]:
+        if self.storage == 'filesystem':
+            files = set(await aiofiles.os.listdir(self.watch_directory))
+        elif self.storage == 'redis':
+            files = {k.removeprefix(str(self.watch_directory)) for k in await self.redis.keys(str(self.watch_directory) + '*')}
+        else:
+            raise ValueError(f'unsupported storage {self.storage}')
+        return files - exclude
+
+    async def _do_watch_directory_step(self) -> None:
+        await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {self.id}')
+        files = await self.read_files()
+        stale_files_ids = set()
+        up_to_date_files_paths = set()
+        for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
+            if file.file in files:
+                up_to_date_files_paths.add(file.file)
+            else:
+                stale_files_ids.add(file.id)
+
+        await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {files=} {stale_files_ids=} {up_to_date_files_paths=}')
+
+        if stale_files_ids:
+            print(f'deleting {len(stale_files_ids)} stale files...')
+            file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
+
+        await self.redis.rpush(constant.TEST_LOGS_KEY, f'{self.id} do_watch_directory {files=} {up_to_date_files_paths=}')
+
+        new_files = files - up_to_date_files_paths
+        if not new_files:
+            print('no new files')
+            return
+        print(f'creating {len(new_files)} new files...')
+        file_crud.create_many(
+            self.db, [
+                schemas.FileCreate(
+                    storage=self.storage,
+                    directory=str(self.watch_directory),
+                    file=file,
+                )
+                for file in new_files
+            ],
+        )
+        await self.redis.lpush(self.files_channel, str(len(new_files)))
+
+    async def do_watch_directory(self) -> None:
         await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory started {self.id}')
 
+        # it = itertools.count()
+        # if self._test_run:
+        #     it = itertools.islice(it, 1)
+        # for _ in it:
         while True:
-            await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {self.id}')
+            await self._do_watch_directory_step()
+            await asyncio.sleep(constant.SLEEP_TIME)
 
-            if self.storage == 'filesystem':
-                files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
-            elif self.storage == 'redis':
-                files = {k.removeprefix(str(self.watch_directory)) for k in await self.redis.keys(str(self.watch_directory) + '*')} - exclude
-
-            stale_files_ids = set()
-            up_to_date_files_paths = set()
-            for file in file_crud.read_by_field(self.db, 'directory', str(self.watch_directory)):
-                if file.file in files:
-                    up_to_date_files_paths.add(file.file)
-                else:
-                    stale_files_ids.add(file.id)
-
-            await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {files=} {stale_files_ids=} {up_to_date_files_paths=}')
-
-            if stale_files_ids:
-                print(f'deleting {len(stale_files_ids)} stale files...')
-                file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
-
-            await self.redis.rpush(constant.TEST_LOGS_KEY, f'{self.id} do_watch_directory {files=} {up_to_date_files_paths=}')
-
-            new_files = files - up_to_date_files_paths
-            if new_files:
-                print(f'creating {len(new_files)} new files...')
-                file_crud.create_many(
-                    self.db, [
-                        schemas.FileCreate(
-                            storage=self.storage,
-                            directory=str(self.watch_directory),
-                            file=file,
-                        )
-                        for file in new_files
-                    ],
-                )
-                await self.redis.lpush(self.files_channel, str(len(new_files)))
-            else:
-                await asyncio.sleep(constant.SLEEP_TIME)
 
     async def cancel_orphans(self):
         pipeline = self.redis.pipeline()
@@ -295,33 +341,42 @@ class Daemon:
         self.db.commit()
         print(f'canceling {len(orphans)} orphans tasks... done')
 
-    async def check_max_n_success(self):
-        await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success started {self.id}')
+    # async def _check_tasks_success(self):
+    #     pass
 
-        while True:
-            n_success = task_crud.n_success(self.db)
-            await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success {n_success=} / {self.max_n_success=} {self.id}')
+    # async def check_max_n_success(self):
+    #     await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success started {self.id}')
 
-            print(f'{n_success=} / {self.max_n_success=}')
-            if n_success == self.max_n_success:
-                print('MAX_N_SUCCESS reached, exiting')
-                for task in asyncio.all_tasks():
-                    task.cancel()
-                raise SystemExit
-            elif n_success > self.max_n_success:
-                raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
-            await asyncio.sleep(constant.SLEEP_TIME)
+    #     while True:
+    #         n_success = task_crud.n_success(self.db)
+    #         await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success {n_success=} / {self.max_n_success=} {self.id}')
+
+    #         print(f'{n_success=} / {self.max_n_success=}')
+    #         if n_success == self.max_n_success:
+    #             print('MAX_N_SUCCESS reached, exiting')
+    #             for task in asyncio.all_tasks():
+    #                 task.cancel()
+    #             raise SystemExit
+    #         elif n_success > self.max_n_success:
+    #             raise RuntimeError(f'n_success={n_success} > max_n_success={self.max_n_success}')
+    #         await asyncio.sleep(constant.SLEEP_TIME)
 
     async def __call__(self):
         await self.cancel_orphans()
 
         aws = [
-            self.do_watch_directory(),
-            self.update_files_dags(),
             self.handle_worker_messages(),
             self.handle_tasks(),
         ]
-        if self.max_n_success is not None:
-            aws.append(self.check_max_n_success())
+
+        if self._test_run:
+            await self._do_watch_directory_step()
+            await self._update_files_dags_step()
+            # aws.append(self._check_tasks_success())
+        else:
+            aws.append(self.do_watch_directory())
+            aws.append(self.update_files_dags())
+        # if self.max_n_success is not None:
+            # aws.append(self.check_max_n_success())
 
         await asyncio.gather(*aws)
