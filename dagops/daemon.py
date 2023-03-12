@@ -232,7 +232,11 @@ class Daemon:
         self,
         exclude: frozenset[str] = constant.default_files_exclude,
     ) -> None:
+        await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory started {self.id}')
+
         while True:
+            await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {self.id}')
+
             if self.storage == 'filesystem':
                 files = set(await aiofiles.os.listdir(self.watch_directory)) - exclude
             elif self.storage == 'redis':
@@ -245,6 +249,9 @@ class Daemon:
                     up_to_date_files_paths.add(file.file)
                 else:
                     stale_files_ids.add(file.id)
+
+            await self.redis.rpush(constant.TEST_LOGS_KEY, f'do_watch_directory {files=} {stale_files_ids=} {up_to_date_files_paths=}')
+
             if stale_files_ids:
                 print(f'deleting {len(stale_files_ids)} stale files...')
                 file_crud.delete_by_field_isin(self.db, 'id', stale_files_ids)
@@ -289,8 +296,12 @@ class Daemon:
         print(f'canceling {len(orphans)} orphans tasks... done')
 
     async def check_max_n_success(self):
+        await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success started {self.id}')
+
         while True:
             n_success = task_crud.n_success(self.db)
+            await self.redis.rpush(constant.TEST_LOGS_KEY, f'check_max_n_success {n_success=} / {self.max_n_success=} {self.id}')
+
             print(f'{n_success=} / {self.max_n_success=}')
             if n_success == self.max_n_success:
                 print('MAX_N_SUCCESS reached, exiting')

@@ -18,7 +18,7 @@ def create_dag(path: str) -> Dag:
     counter_cmd = [sys.executable, '-u', 'examples/commands/counter.py', counter_key]
 
     if exists_command := os.environ.get('EXISTS_COMMAND'):
-        exists_command = exists.command(f'redis://{counter_key}')
+        exists_command = exists.command(exists_command)
     counter_task = TaskInfo(
         command=counter_cmd,
         exists_command=exists_command,

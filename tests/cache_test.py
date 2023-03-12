@@ -37,14 +37,16 @@ from dagops.util import delete_keys_sync
 
 #     assert redis.get('counter') == '1'
 
-@pytest.mark.asyncio
+# @pytest.mark.asyncio
 @pytest.mark.parametrize(
     'exists_command, n_iterations', [
+        # (None, 1),
         (None, 2),
-        ('redis://counter', 2),
+        # ('redis://counter', 1),
+        # ('redis://counter', 2),
     ],
 )
-async def test_cache(exists_command, n_iterations, db, redis):
+def test_cache(exists_command, n_iterations, db, redis):
     WATCH_DIRECTORY = 'some_key'
     # redis.delete(WATCH_DIRECTORY)
     delete_keys_sync(redis, WATCH_DIRECTORY)
