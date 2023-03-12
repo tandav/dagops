@@ -1,5 +1,5 @@
-import os
 import asyncio
+import os
 
 from redis.asyncio import Redis
 from sqlalchemy.orm import Session
@@ -79,10 +79,11 @@ class Worker:
 
     async def run_tasks_from_queue(self):
         while True:
+            print('run_tasks_from_queue B', len(self.aiotask_to_task_id))
             if len(self.aiotask_to_task_id) >= self.maxtasks:
                 await asyncio.sleep(constant.SLEEP_TIME)
                 continue
-            print('run_tasks_from_queue', len(self.aiotask_to_task_id))
+            print('run_tasks_from_queue A', len(self.aiotask_to_task_id))
             _, message = await self.redis.brpop(f'{constant.QUEUE_TASK}:{self.name}')
             task = schemas.TaskMessage.parse_raw(message)
             if task.stop_worker_signal:
@@ -154,8 +155,18 @@ async def prepare_workers(
         await redis.delete(f'{constant.CHANNEL_AIO_TASKS}:{worker_name}')
     return workers_objs
 
+async def all_daemon_done(redis: Redis) -> bool:
+    if not constant.DAEMONS_STARTED:
+        return False
+    daemon_keys = await redis.keys(f'{constant.DAEMONS_DONE_STATUS_KEY}:*')
+    pipeline = redis.pipeline()
+    for key in daemon_keys:
+        pipeline.get(key)
+    return all(int(value or 0) for value in await pipeline.execute())
+
 async def wait_all_daemons_exit(workers: list[Worker], redis: Redis):
-    while not await redis.exists(constant.ALL_DAEMONS_DONE_KEY):
+    # while not await redis.exists(constant.ALL_DAEMONS_DONE_KEY):
+    while not await all_daemon_done(redis):
         await asyncio.sleep(constant.SLEEP_TIME)
     print('wait_all_daemons_exit done', workers)
     for worker in workers:

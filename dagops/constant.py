@@ -7,7 +7,10 @@ CHANNEL_FILES = f'{PREFIX}:files'
 LIST_LOGS = f'{PREFIX}:logs'
 LOCKS = f'{PREFIX}:locks'
 TEST_LOGS_KEY = f'{PREFIX}:test-logs'
-ALL_DAEMONS_DONE_KEY = f'{PREFIX}:all-daemons-done'
+DAEMONS_DONE_STATUS_KEY = f'{PREFIX}:daemons-done-status'
+# DAEMONS_STARTED = f'{PREFIX}:daemons-started'
+
+DAEMONS_STARTED = 0
 
 workers = {'cpu': 32, 'gpu': 1}
 CACHE_NOT_EXISTS_RETURNCODE = 87

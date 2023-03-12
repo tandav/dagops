@@ -8,6 +8,8 @@ import humanize
 from redis import Redis
 
 from dagops import constant
+from dagops.state import models
+from dagops.state.status import TaskStatus
 
 
 def dirset(
@@ -101,6 +103,7 @@ async def delete_keys(redis, prefix: str):
     for key in await redis.keys(prefix + '*'):
         pipeline.delete(key)
     await pipeline.execute()
+    print('deleted', prefix)
 
 
 def delete_keys_sync(redis, prefix: str):
@@ -108,3 +111,26 @@ def delete_keys_sync(redis, prefix: str):
     for key in redis.keys(prefix + '*'):
         pipeline.delete(key)
     pipeline.execute()
+    print('deleted', prefix)
+
+
+
+async def cancel_orphans(db, redis):
+    await delete_keys(redis, f'{constant.CHANNEL_FILES}:*')
+    await delete_keys(redis, f'{constant.QUEUE_TASK}:*')
+    await delete_keys(redis, f'{constant.QUEUE_TASK_STATUS}:*')
+    await delete_keys(redis, f'{constant.CHANNEL_AIO_TASKS}:*')
+    await delete_keys(redis, f'{constant.DAEMONS_DONE_STATUS_KEY}:*')
+
+    orphans = db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
+    if not orphans:
+        return
+    print(f'canceling {len(orphans)} orphans tasks...')
+    for task in orphans:
+        now = datetime.datetime.utcnow()
+        task.status = TaskStatus.CANCELED
+        if task.started_at is not None:
+            task.stopped_at = now
+        task.running_worker_id = None
+    db.commit()
+    print(f'canceling {len(orphans)} orphans tasks... done')

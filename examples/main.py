@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 
+from dagops import util
 from dagops.daemon import Daemon
 from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
@@ -47,6 +48,7 @@ async def main():
         get_db_cm() as db,
         get_redis_cm() as redis,
     ):
+        await util.cancel_orphans(db, redis)
         daemon = Daemon(
             watch_directory=os.environ['WATCH_DIRECTORY'],
             db=db,

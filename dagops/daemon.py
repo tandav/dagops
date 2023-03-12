@@ -1,8 +1,6 @@
 import asyncio
-import datetime
 import os
 import uuid
-import itertools
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -18,7 +16,6 @@ from dagops.state import models
 from dagops.state import schemas
 from dagops.state.crud.dag import dag_crud
 from dagops.state.crud.file import file_crud
-from dagops.state.crud.task import task_crud
 from dagops.state.status import TaskStatus
 from dagops.state.status import WorkerTaskStatus
 
@@ -44,36 +41,30 @@ class Daemon:
         self.storage = storage
         self.files_channel = f'{constant.CHANNEL_FILES}:{self.watch_directory}'
         self.fsm_tasks = {}
-        self._test_run = 'TEST_RUN' in os.environ 
+        self._test_run = 'TEST_RUN' in os.environ
 
     @property
     def _test_all_tasks_done(self) -> bool:
         return (
-            self._test_run and 
+            self._test_run and
             self.fsm_tasks and
             all(fsm_task.state == TaskStatus.SUCCESS for fsm_task in self.fsm_tasks.values())
         )
-    
+
     @property
     def fsm_tasks_bits_string(self) -> str:
-        bits = ''.join(str(int(fsm_task.state == TaskStatus.SUCCESS)) for fsm_task in self.fsm_tasks.values())
+        # bits = ''.join(str(int(fsm_task.state == TaskStatus.SUCCESS)) for fsm_task in self.fsm_tasks.values())
+        bits = [str(fsm_task.state) for fsm_task in self.fsm_tasks.values()]
         return f'{len(self.fsm_tasks)} {bits}'
 
-    async def handle_worker_messages(self):
+    async def handle_worker_messages(self): # noqa: PLR0912
         while True:
-            print(f'daemon.handle_worker_messages {self.fsm_tasks_bits_string}')
+            print(f'daemon.{self.id}.handle_worker_messages {self.fsm_tasks_bits_string}')
             if self._test_all_tasks_done:
-                workers = {fsm_task.db_obj.worker.name for fsm_task in self.fsm_tasks.values()}
-                for worker in workers:
-                    print('handle_worker_messages', 'send stop message to', worker)
-                    await self.redis.lpush(
-                        f'{constant.QUEUE_TASK}:{worker}',
-                        schemas.TaskMessage(
-                            id='dummy',
-                            daemon_id=str(self.id),
-                            stop_worker_signal=True,
-                        ).json(),
-                    )
+                print('daemon.handle_worker_messages test_all_tasks_done')
+                await self.redis.set(f'{constant.DAEMONS_DONE_STATUS_KEY}:{self.id}', '1')
+                return
+
             kv = await self.redis.brpop(f'{constant.QUEUE_TASK_STATUS}:{self.id}', timeout=constant.SLEEP_TIME)
             if kv is not None:
                 _, message = kv
@@ -105,8 +96,6 @@ class Daemon:
                         await fsm_task.fail(output_data=message.output_data)
                         if not self._test_run:
                             del self.fsm_tasks[task_id]
-
-
 
 
                 # task_id = uuid.UUID(message.id)
@@ -142,23 +131,32 @@ class Daemon:
 
     async def handle_tasks(self):
         while True:
-            print(f'daemon.handle_tasks {self.fsm_tasks_bits_string}')
+            print(f'daemon.{self.id}.handle_tasks {self.fsm_tasks_bits_string}')
             if self._test_all_tasks_done:
                 print('handle_tasks', 'all tasks done, exiting')
+                await self.redis.set(f'{constant.DAEMONS_DONE_STATUS_KEY}:{self.id}', '1')
                 return
             for task in (
                 self
                 .db
                 .query(models.Task)
                 .filter(models.Task.daemon_id == self.id)
+                # .filter(
+                #     models.Task.status.not_in([
+                #         TaskStatus.SUCCESS,
+                #         TaskStatus.FAILED,
+                #         TaskStatus.QUEUED_RUN,
+                #         TaskStatus.RUNNING,
+                #         TaskStatus.QUEUED_CACHE_CHECK,
+                #         TaskStatus.CACHE_CHECK_RUNNING,
+                #     ]),
+                # )
                 .filter(
-                    models.Task.status.not_in([
-                        TaskStatus.SUCCESS,
+                    models.Task.status.in_([
+                        TaskStatus.PENDING,
+                        TaskStatus.WAIT_CACHE_PATH_RELEASE,
+                        TaskStatus.WAIT_UPSTREAM,
                         TaskStatus.FAILED,
-                        TaskStatus.QUEUED_RUN,
-                        TaskStatus.RUNNING,
-                        TaskStatus.QUEUED_CACHE_CHECK,
-                        TaskStatus.CACHE_CHECK_RUNNING,
                     ]),
                 )
                 .all()
@@ -260,7 +258,7 @@ class Daemon:
         """create dags for new files"""
         while True:
             await self._update_files_dags_step()
- 
+
     async def read_files(
         self,
         exclude: frozenset[str] = constant.default_files_exclude,
@@ -321,25 +319,25 @@ class Daemon:
             await asyncio.sleep(constant.SLEEP_TIME)
 
 
-    async def cancel_orphans(self):
-        pipeline = self.redis.pipeline()
-        pipeline.delete(self.files_channel)
-        pipeline.delete(f'{constant.QUEUE_TASK}:*')
-        pipeline.delete(f'{constant.QUEUE_TASK_STATUS}:*')
-        pipeline.delete(f'{constant.CHANNEL_AIO_TASKS}:*')
-        await pipeline.execute()
-        orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
-        if not orphans:
-            return
-        print(f'canceling {len(orphans)} orphans tasks...')
-        for task in orphans:
-            now = datetime.datetime.utcnow()
-            task.status = TaskStatus.CANCELED
-            if task.started_at is not None:
-                task.stopped_at = now
-            task.running_worker_id = None
-        self.db.commit()
-        print(f'canceling {len(orphans)} orphans tasks... done')
+    # async def cancel_orphans(self):
+    #     await util.delete_keys(self.redis, self.files_channel)
+    #     await util.delete_keys(self.redis, f'{constant.QUEUE_TASK}:*')
+    #     await util.delete_keys(self.redis, f'{constant.QUEUE_TASK_STATUS}:*')
+    #     await util.delete_keys(self.redis, f'{constant.CHANNEL_AIO_TASKS}:*')
+    #     await util.delete_keys(self.redis, f'{constant.DAEMONS_DONE_STATUS_KEY}:*')
+    #     # await self.redis.set(constant.DAEMONS_STARTED, '1')
+    #     orphans = self.db.query(models.Task).filter(models.Task.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])).all()
+    #     if not orphans:
+    #         return
+    #     print(f'canceling {len(orphans)} orphans tasks...')
+    #     for task in orphans:
+    #         now = datetime.datetime.utcnow()
+    #         task.status = TaskStatus.CANCELED
+    #         if task.started_at is not None:
+    #             task.stopped_at = now
+    #         task.running_worker_id = None
+    #     self.db.commit()
+    #     print(f'canceling {len(orphans)} orphans tasks... done')
 
     # async def _check_tasks_success(self):
     #     pass
@@ -362,7 +360,9 @@ class Daemon:
     #         await asyncio.sleep(constant.SLEEP_TIME)
 
     async def __call__(self):
-        await self.cancel_orphans()
+        # await self.cancel_orphans()
+        await self.redis.set(f'{constant.DAEMONS_DONE_STATUS_KEY}:{self.id}', '0')
+        constant.DAEMONS_STARTED += 1
 
         aws = [
             self.handle_worker_messages(),

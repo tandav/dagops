@@ -65,11 +65,11 @@ class TaskMessage(BaseModel):
 
     @root_validator
     def validate_input_data(cls, values):
-        if not (
-            (values.get('input_data') is None) ^
-            (values.get('stop_worker_signal') is None)
+        if (
+            (values.get('input_data') is not None) and
+            (values.get('stop_worker_signal') is not None)
         ):
-            raise ValueError('input_data or stop_worker_signal must be set (mutually exclusive)')
+            raise ValueError('input_data is not None, stop_worker_signal is not allowed')
         return values
 
 
