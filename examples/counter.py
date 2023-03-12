@@ -3,6 +3,7 @@ import os
 import sys
 
 from dagops import constant
+from dagops import util
 from dagops.daemon import Daemon
 from dagops.dag import Dag
 from dagops.dependencies import get_db_cm
@@ -35,6 +36,7 @@ async def main():
         get_db_cm() as db,
         get_redis_cm() as redis,
     ):
+        await util.cancel_orphans(db, redis)
         await redis.rpush(constant.TEST_LOGS_KEY, 'examples/main.py')
         daemon = Daemon(
             watch_directory=os.environ['WATCH_DIRECTORY'],
@@ -45,7 +47,7 @@ async def main():
         )
         workers = await prepare_workers(db, redis)
         await asyncio.gather(
-            run_workers(workers),
+            run_workers(workers, redis),
             daemon(),
         )
 

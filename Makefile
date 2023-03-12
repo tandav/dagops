@@ -30,6 +30,6 @@ redaemon: reinit daemon
 
 .PHONY: test
 test:
-	# pytest -s
+	pytest -s
 	# pytest -s -vv tests/cache_test.py
-	pytest -s -vv tests/pipeline_test.py
+	# pytest -s -vv tests/pipeline_test.py

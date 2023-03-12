@@ -4,12 +4,11 @@ import sys
 from unittest import mock
 
 import examples.main
-from dagops.util import n_files
 
 
 def test_watch_filesystem(db, WATCH_DIRECTORY, WATCH_DIRECTORY_BATCH):
-    serial_graph = examples.main.create_dag('dummy_file')
-    batch_graph = examples.main.create_batch_dag([])
+    examples.main.create_dag('dummy_file')
+    examples.main.create_batch_dag([])
     # MAX_N_SUCCESS = n_files(WATCH_DIRECTORY) * (len(serial_graph) + 1) + len(batch_graph) + 1
 
     with mock.patch.dict(
@@ -26,8 +25,8 @@ def test_watch_filesystem(db, WATCH_DIRECTORY, WATCH_DIRECTORY_BATCH):
 
 
 def test_watch_redis(db, redis, WATCH_DIRECTORY):
-    serial_graph = examples.main.create_dag('dummy_file')
-    batch_graph = examples.main.create_batch_dag([])
+    examples.main.create_dag('dummy_file')
+    examples.main.create_batch_dag([])
     # MAX_N_SUCCESS = n_files(WATCH_DIRECTORY) * (len(serial_graph) + 1) + len(batch_graph) + 1
 
     with mock.patch.dict(

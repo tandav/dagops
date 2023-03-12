@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 
-import examples.counter
 from dagops import constant
 from dagops.util import delete_keys_sync
 
@@ -40,10 +39,10 @@ from dagops.util import delete_keys_sync
 # @pytest.mark.asyncio
 @pytest.mark.parametrize(
     'exists_command, n_iterations', [
-        # (None, 1),
+        (None, 1),
         (None, 2),
-        # ('redis://counter', 1),
-        # ('redis://counter', 2),
+        ('redis://counter', 1),
+        ('redis://counter', 2),
     ],
 )
 def test_cache(exists_command, n_iterations, db, redis):
@@ -56,19 +55,11 @@ def test_cache(exists_command, n_iterations, db, redis):
     redis.delete(constant.TEST_LOGS_KEY)
 
 
-    with mock.patch.dict(
-        os.environ, {
-            'COUNTER_KEY': counter_key,
-        },
-    ):
-        graph = examples.counter.create_dag('dummy_file')
-
-    MAX_N_SUCCESS = len(graph) + 1
     for i in range(n_iterations):
         redis.set(f'{WATCH_DIRECTORY}:{i}', 'some_value')
         environ_patch = {
             'N_ITERATIONS': '1',
-            'MAX_N_SUCCESS': str(MAX_N_SUCCESS),
+            'TEST_RUN': 'true',
             'WATCH_DIRECTORY': WATCH_DIRECTORY,
             'STORAGE': 'redis',
             'COUNTER_KEY': counter_key,
