@@ -18,7 +18,7 @@ class Task:
         db_obj: models.Task,
         db: Session,
         redis: Redis,
-    ):
+    ) -> None:
         db.refresh(db_obj)
         self.db_obj = db_obj
         self.db = db
@@ -29,11 +29,28 @@ class Task:
             initial=TaskStatus.PENDING,
         )
 
-        # MVP: no cache check
-        # self.machine.add_transition('wait_cache_path_release', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE)
+        # MVP: no wait for cache path release
+        # todo: add WAIT_CACHE_PATH_RELEASE -> QUEUED_CACHE_CHECK transition
 
-        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db'])
-        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after='update_db')
+        self.machine.add_transition('wait_upstream', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, conditions=['is_dag'], after=['update_started_at', 'update_db']) # if dag - wait upstream w/o cache check
+
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_CACHE_PATH_RELEASE, conditions=['is_cache_path_locked'], after=['update_db'])
+        # self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, conditions=['is_cache_can_be_checked'], after=['send_message_to_worker2', 'update_db'])
+        self.machine.add_transition('try_queue_cache_check', TaskStatus.PENDING, TaskStatus.WAIT_UPSTREAM, after=['update_db']) # if not is_cache_can_be_checked - wait upstream w/o cache check
+
+        self.machine.add_transition('queue_cache_check', TaskStatus.PENDING, TaskStatus.QUEUED_CACHE_CHECK, after=['update_db'])
+
+
+
+        self.machine.add_transition('run_cache_check', TaskStatus.QUEUED_CACHE_CHECK, TaskStatus.CACHE_CHECK_RUNNING, after=['update_db'])
+
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, conditions=['is_cache_path_exists'], after=['update_db'])
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, conditions=['is_cache_check_failed'], after=['update_db'])
+        # self.machine.add_transition('check_cache', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
+
+        self.machine.add_transition('cache_exists', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.SUCCESS, after=['update_db'])
+        self.machine.add_transition('cache_check_failed', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.FAILED, after=['update_db'])
+        self.machine.add_transition('cache_not_exists', TaskStatus.CACHE_CHECK_RUNNING, TaskStatus.WAIT_UPSTREAM, after=['update_db'])
 
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.SUCCESS, conditions=['all_upstream_success', 'is_dag'], after='update_db')
         self.machine.add_transition('check_upstream', TaskStatus.WAIT_UPSTREAM, TaskStatus.QUEUED_RUN, conditions=['all_upstream_success'], after=['update_db', 'send_message_to_worker'])
@@ -51,13 +68,26 @@ class Task:
             self.machine.on_enter_FAILED(method)
             self.machine.on_enter_SUCCESS(method)
 
-    def all_upstream_success(self, upstream: list[models.Task], **kwargs):
+    def is_cache_can_be_checked(self, **kwargs) -> bool:
+        return self.db_obj.input_data.get('exists_command') is not None
+
+    def is_cache_path_locked(self, **kwargs) -> bool:
+        return False
+        # return self.db_obj.cache_path_locked
+
+    def is_cache_path_exists(self, **kwargs) -> bool:
+        return False
+
+    def is_cache_check_failed(self, **kwargs) -> bool:
+        return False
+
+    def all_upstream_success(self, upstream: list[models.Task], **kwargs) -> bool:
         return all(u.status == TaskStatus.SUCCESS for u in upstream)
 
-    def any_upstream_failed(self, upstream: list[models.Task], **kwargs):
+    def any_upstream_failed(self, upstream: list[models.Task], **kwargs) -> bool:
         return any(u.status == TaskStatus.FAILED for u in upstream)
 
-    def is_dag(self, **kwargs):
+    def is_dag(self, **kwargs) -> bool:
         return self.db_obj.type == 'dag'
 
     def update_db(self, **kwargs):
@@ -88,6 +118,26 @@ class Task:
             schemas.TaskMessage(
                 id=str(self.db_obj.id),
                 input_data=self.db_obj.input_data,
+                daemon_id=str(self.db_obj.daemon_id),
+            ).json(),
+        )
+
+    async def send_message_to_worker2(self, **kwargs):
+        """
+        send check cache message to worker
+        should it be added to db?
+        """
+        input_data = {
+            'command': self.db_obj.input_data['exists_command'],
+            'env': self.db_obj.input_data['exists_env'],
+            'is_cache_check': True,
+        }
+        await self.redis.lpush(
+            f'{constant.QUEUE_TASK}:{self.db_obj.worker.name}',
+            schemas.TaskMessage(
+                # id=str(self.db_obj.id),
+                id=f'cache-{self.db_obj.id}',
+                input_data=input_data,
                 daemon_id=str(self.db_obj.daemon_id),
             ).json(),
         )
@@ -123,6 +173,7 @@ class WorkerTask:
         pipeline.lpush(
             f'{constant.QUEUE_TASK_STATUS}:{task.daemon_id}', schemas.WorkerTaskStatusMessage(
                 id=task.id,
+                input_data=self.task.input_data,
                 status=WorkerTaskStatus.RUNNING,
             ).json(),
         )
@@ -132,8 +183,9 @@ class WorkerTask:
         task_id = self.task.id
         status_message = schemas.WorkerTaskStatusMessage(
             id=task_id,
-            status=self.state,
+            input_data=self.task.input_data,
             output_data={'returncode': returncode},
+            status=self.state,
         )
         daemon_id = self.task.daemon_id
         await self.redis.lpush(f'{constant.QUEUE_TASK_STATUS}:{daemon_id}', status_message.json())

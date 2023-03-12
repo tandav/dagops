@@ -7,7 +7,7 @@ from dagops.state.models import Base
 
 
 class CRUD:
-    def __init__(self, model: type[Base]):
+    def __init__(self, model: type[Base]) -> None:
         self.model = model
 
     def read_by_id(self, db: Session, id: int) -> Base:

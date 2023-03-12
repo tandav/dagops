@@ -32,3 +32,4 @@ redaemon: reinit daemon
 test:
 	pytest -s
 	# pytest -s -vv tests/cache_test.py
+	# pytest -s -vv tests/pipeline_test.py

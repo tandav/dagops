@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import root_validator
 
-from dagops import constant
 from dagops.state.status import TaskStatus
 from dagops.state.status import WorkerTaskStatus
 
@@ -41,6 +40,14 @@ class ShellTaskInputData(BaseModel):
     env: dict[str, str] | None = None
     exists_command: list[str] | None = None
     exists_env: dict[str, str] | None = None
+    is_cache_check: bool = False
+    original_task_id: str | None = None
+
+    # @root_validator
+    # def validate_cache(cls, values):
+    #     if values['is_cache_check'] and values['exists_command'] is None:
+    #         raise ValueError('exists_command must be set when is_cache_check=True')
+    #     return values
 
     def __hash__(self):
         command = tuple(self.command)
@@ -52,14 +59,25 @@ class ShellTaskInputData(BaseModel):
 
 class TaskMessage(BaseModel):
     id: str
-    input_data: ShellTaskInputData
+    input_data: ShellTaskInputData | None
     daemon_id: str
+    stop_worker_signal: bool | None = None
+
+    @root_validator
+    def validate_input_data(cls, values):
+        if (
+            (values.get('input_data') is not None) and
+            (values.get('stop_worker_signal') is not None)
+        ):
+            raise ValueError('input_data is not None, stop_worker_signal is not allowed')
+        return values
 
 
 class WorkerTaskStatusMessage(BaseModel):
     id: str
-    status: WorkerTaskStatus
+    input_data: ShellTaskInputData
     output_data: dict | None = None
+    status: WorkerTaskStatus
 
 
 class TaskInfo(ShellTaskInputData, WithWorkerName):
@@ -123,18 +141,18 @@ class TaskUpdate(BaseModel):
 
 
 class TaskRunResult(BaseModel):
-    exists_returncode: int | None = None
+    # exists_returncode: int | None = None
     returncode: int | None = None
 
-    @root_validator
-    def validate_returncodes(cls, values):
-        if values['exists_returncode'] is None and values['returncode'] is None:
-            raise ValueError('at least one of returncodes should be set')
-        if values['exists_returncode'] is None:
-            return values
-        if values['exists_returncode'] != constant.NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
-            raise ValueError(f'task should be run only if exists check not passed {values}')
-        return values
+    # @root_validator
+    # def validate_returncodes(cls, values):
+    #     if values['exists_returncode'] is None and values['returncode'] is None:
+    #         raise ValueError('at least one of returncodes should be set')
+    #     if values['exists_returncode'] is None:
+    #         return values
+    #     if values['exists_returncode'] != constant.CACHE_NOT_EXISTS_RETURNCODE and values['returncode'] is not None:
+    #         raise ValueError(f'task should be run only if exists check not passed {values}')
+    #     return values
 
 # =============================================================================
 

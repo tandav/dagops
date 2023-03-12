@@ -1,5 +1,3 @@
-
-
 [project]
 name = "dagops"
 version = "0.5.1"
@@ -103,18 +101,44 @@ disallow_untyped_defs = false
 # ==============================================================================
 
 [tool.ruff]
-select = [
-    "E", "W", # pycodestyle
-    "F",      # pyflakes
+extend-select = [
+    "W",
     "C",
-    "I",      # isort
-    "PTH",    # pathlib
+    "I",
+    "PTH",
+    "SIM",
+    "TCH",
+    "C4",
+    "S",
+    "BLE",
+    "B",
+    "T10",
+    "INP",
+    "PIE",
+    "PL",
+    "RUF",
 ]
 ignore = [
     "E501",  # line too long
+    "B008",
+    "PLR0913",
 ]
+
+[tool.ruff.per-file-ignores]
+"examples/*" = ["INP001"]
+"tests/*" = ["S101"]
 
 [tool.ruff.isort]
 force-single-line = true
+
+# ==============================================================================
+
+[tool.pylint.messages-control]
+disable = [
+    "C0301","C0103","C0116","C0114","C0115","C0413",
+    "W0212",
+    "R0913","R0903",
+    "E0401",
+]
 
 # ==============================================================================

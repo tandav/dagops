@@ -5,11 +5,16 @@ QUEUE_TASK_STATUS = f'{PREFIX}:queue:task_status'
 CHANNEL_AIO_TASKS = f'{PREFIX}:aio_tasks'
 CHANNEL_FILES = f'{PREFIX}:files'
 LIST_LOGS = f'{PREFIX}:logs'
-LIST_ERROR = f'{PREFIX}:errors'
 LOCKS = f'{PREFIX}:locks'
+TEST_LOGS_KEY = f'{PREFIX}:test-logs'
+DAEMONS_DONE_STATUS_KEY = f'{PREFIX}:daemons-done-status'
+# DAEMONS_STARTED = f'{PREFIX}:daemons-started'
+
+DAEMONS_STARTED = 0
 
 workers = {'cpu': 32, 'gpu': 1}
-NOT_EXISTS_RETURNCODE = 87
+CACHE_NOT_EXISTS_RETURNCODE = 87
 
 default_files_exclude = frozenset({'.DS_Store'})
 LOGS_TTL = 60 * 60 * 24 * 7  # 7 days
+STOP_WORKER_MESSAGE = 'STOP_WORKER'
